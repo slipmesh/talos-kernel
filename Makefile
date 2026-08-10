@@ -9,9 +9,10 @@
 # Needs Docker + `docker buildx` (siderolabs' real `bldr` toolchain, a custom BuildKit
 # frontend podman/buildah can't run).
 #
-# This is the base of a four-repo pipeline: this repo publishes a signed kernel+module,
-# talos-awg-extension and talos-router-extension each package one system extension against
-# it, talos-installer assembles a kernel + N extensions into what nodes actually boot.
+# This is the base of a five-repo pipeline: this repo publishes a signed kernel+module,
+# talos-awg-extension, talos-router-extension, and talos-nftables-extension each package
+# one system extension against it, talos-installer assembles a kernel + N extensions into
+# what nodes actually boot.
 # Each repo builds and publishes independently; nothing here checks out or depends on the
 # others - see each repo's own README for how they're wired together by tag.
 #
