@@ -24,12 +24,13 @@ build/                        (gitignored) the pkgs checkout
 Needs **Docker** (`docker buildx`) - `bldr`, siderolabs' real build tool, is a custom
 BuildKit frontend podman/buildah can't run.
 
-## This is one of four repos
+## This is one of five repos
 
 ```
 talos-kernel              (this repo)   -> signed kernel + amneziawg-pkg
 talos-awg-extension                     -> amneziawg system extension (pulls amneziawg-pkg)
 talos-router-extension                  -> router system extension (no kernel dependency)
+talos-nftables-extension                -> nftables system extension (no kernel dependency)
 talos-installer                         -> assembles kernel + N extensions into an installer
 ```
 
