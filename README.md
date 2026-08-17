@@ -35,17 +35,26 @@ talos-installer                         -> assembles kernel + N extensions into 
 ```
 
 Each repo builds and publishes independently - none of them check out or depend on each
-other's source, only on each other's published OCI tags (by convention: same
-`TALOS_VERSION`/`AWG_REF` pins reconstruct the same tag this repo publishes under, see
-`make print-config`). `talos-awg-extension` and `talos-installer` both need this repo's
-`TALOS_VERSION`/`AWG_REF` values to match their own `versions.env` - bump them together.
+other's source, only on each other's published OCI tags. Like `../bird`, this repo's own
+git release tag *is* the published image tag (see "Usage"/`RELEASE_TAG` below), so
+consumers name a specific release rather than reconstructing a tag from shared pins:
+`talos-awg-extension` pins the exact release it consumes via its own `versions.env`'s
+`KERNEL_RELEASE`, and `talos-installer` takes a concrete `KERNEL_IMAGE` ref per invocation.
+Bump `TALOS_VERSION`/`AWG_REF` here and in `talos-awg-extension`'s `versions.env` together
+regardless - they still feed both repos' extension manifests (see `EXT_VERSION` in each
+Makefile), even though they no longer construct the registry tag.
 
 ## Usage
 
+`kernel`/`print-config` need `RELEASE_TAG=<the git tag being released>` (no default).
+Like `../bird`, `RELEASE_TAG` *is* the published image tag (`+` swapped for `-`, since OCI
+tags can't contain `+`) - see `cliff.toml`'s `tag_pattern` for the exact shape
+(`vX.Y.Z[+talosA.B.C]`).
+
 ```sh
-make print-config   # resolved pins, image names
-make preflight       # docker/buildx/git/curl present, >=40G free
-make kernel            # build kernel + amneziawg module together, push both (~15-40 min)
+make print-config RELEASE_TAG=v0.1.0+talos1.13.8   # resolved pins, image names
+make preflight                                       # docker/buildx/git/curl present, >=40G free
+make kernel RELEASE_TAG=v0.1.0+talos1.13.8              # build kernel + amneziawg module together, push both (~15-40 min)
 ```
 
 `make kernel` is arch-independent - one multi-platform (`linux/amd64,linux/arm64`)
@@ -66,11 +75,16 @@ this.
 ## Bumping
 
 **Talos:** set `TALOS_VERSION`, update `UPSTREAM_PKGS_REF` to whatever the command under
-"Pinning" returns, `make check-pins`, then `make distclean && make kernel`.
+"Pinning" returns, `make check-pins`, then `make distclean && make kernel
+RELEASE_TAG=<new release tag>`.
 
-**AmneziaWG:** set `AWG_REF`, run `make hashes`, paste both values back, `make kernel`
-(always rebuilds both together - there's no way to rebuild only the module and keep the
-kernel half from the shared build, by design, see `docs/kernel-signing.md`).
+**AmneziaWG:** set `AWG_REF`, run `make hashes`, paste both values back, `make kernel
+RELEASE_TAG=<new release tag>` (always rebuilds both together - there's no way to rebuild
+only the module and keep the kernel half from the shared build, by design, see
+`docs/kernel-signing.md`).
 
-After bumping either, update `TALOS_VERSION`/`AWG_REF` to match in `talos-awg-extension`'s
-and `talos-installer`'s own `versions.env`.
+After bumping either, update `TALOS_VERSION`/`AWG_REF` in `talos-awg-extension`'s own
+`versions.env` to match (still an informational cross-check there, folded into
+`EXT_VERSION`), and set its `KERNEL_RELEASE` to this repo's new release tag - that's what
+actually points it at the new `amneziawg-pkg` image. Give `talos-installer` the new
+`KERNEL_IMAGE` ref directly when you next run it.
