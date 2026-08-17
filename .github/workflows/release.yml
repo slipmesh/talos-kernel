@@ -1,0 +1,51 @@
+# Triggered by a `vX.Y.Z` tag. Runs `make check-pins` (fast, fails loudly if UPSTREAM_PKGS_REF
+# drifted from what TALOS_VERSION actually pins) then `make kernel`, which builds and pushes both
+# the signed kernel and amneziawg-pkg images (linux/amd64+linux/arm64, one bldr/buildx invocation
+# each, sharing the same signing key - see the Makefile's own comment on why they must not be
+# split across separate invocations) to ghcr.io/slipmesh.
+#
+# This is a real kernel compile, not a small C/Rust build like bird/cni-config's own
+# release.yml - `make preflight` wants >=40G free and the standard GitHub-hosted runner's default
+# disk is well short of that, hence the disk-reclaim step below. Untested against the real
+# resource ceiling of a GitHub-hosted runner as of writing - the first real tag push here is the
+# actual test; if it runs out of disk or time, the next move is either a larger hosted runner or a
+# self-hosted one, not smaller kernel config.
+name: Release kernel + amneziawg-pkg
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reclaims disk by removing preinstalled toolchains this build never uses (Android SDK,
+      # .NET, GHC, unused Docker images) - a full kernel build needs more headroom than the
+      # runner's default ~14G free.
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          docker-images: false
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify UPSTREAM_PKGS_REF still matches TALOS_VERSION
+        run: make check-pins
+
+      - name: Build and push kernel + amneziawg-pkg
+        run: make kernel
