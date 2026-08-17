@@ -25,18 +25,29 @@ SHELL := /bin/bash
 .SHELLFLAGS := -euo pipefail -c
 .DEFAULT_GOAL := help
 
+_GOALS := $(or $(MAKECMDGOALS),$(.DEFAULT_GOAL))
+ifeq ($(RELEASE_TAG),)
+  ifneq ($(filter-out distclean help hashes checkout-pkgs check-pins preflight,$(_GOALS)),)
+    $(error RELEASE_TAG not set - pass RELEASE_TAG=v0.1.0+talos1.13.8, the git tag this build is released under)
+  endif
+endif
+
 BUILD_DIR := build
 PKGS_DIR  := $(BUILD_DIR)/pkgs
 
 AWG_SHORT := $(shell printf '%.7s' '$(AWG_REF)')
 
-# One repo per artifact, matching upstream's own convention (ghcr.io/siderolabs/kernel,
-# ghcr.io/siderolabs/zfs-pkg, ...) - siderolabs/extensions' pkg.yaml templates expect
-# exactly this shape ({{ .BUILD_ARG_PKGS_PREFIX }}/<name>:{{ .BUILD_ARG_PKGS }}), and
-# talos-installer's PKG_KERNEL expects a plain image ref.
-PKGS_TAG            := $(TALOS_VERSION)-awg-$(AWG_SHORT)
-KERNEL_IMAGE         := $(DOCKER_NS)/kernel:$(PKGS_TAG)
-AMNEZIAWG_PKG_IMAGE  := $(DOCKER_NS)/amneziawg-pkg:$(PKGS_TAG)
+# Registry tags follow ../bird's own convention: the git release tag *is* the image tag
+# (`+` swapped for `-`, since OCI tags can't contain `+`) - RELEASE_TAG is required, not
+# derived from TALOS_VERSION/AWG_REF, so a rebuild against unchanged pins still needs an
+# explicit new release to publish under. One repo per artifact, matching upstream's own
+# convention (ghcr.io/siderolabs/kernel, ghcr.io/siderolabs/zfs-pkg, ...) -
+# siderolabs/extensions' pkg.yaml templates expect exactly this shape
+# ({{ .BUILD_ARG_PKGS_PREFIX }}/<name>:{{ .BUILD_ARG_PKGS }}), and talos-installer's
+# PKG_KERNEL expects a plain image ref.
+RELEASE_TAG_SAFE     := $(subst +,-,$(RELEASE_TAG))
+KERNEL_IMAGE         := $(DOCKER_NS)/kernel:$(RELEASE_TAG_SAFE)
+AMNEZIAWG_PKG_IMAGE  := $(DOCKER_NS)/amneziawg-pkg:$(RELEASE_TAG_SAFE)
 
 ##@ General
 
@@ -51,6 +62,7 @@ print-config: ## Show the resolved pins and image names.
 	@echo "talos          : $(TALOS_VERSION)"
 	@echo "pkgs ref       : $(UPSTREAM_PKGS_REF)"
 	@echo "awg ref        : $(AWG_REF) ($(AWG_SHORT))"
+	@echo "release tag    : $(RELEASE_TAG)"
 	@echo "kernel image   : $(KERNEL_IMAGE)"
 	@echo "amneziawg pkg  : $(AMNEZIAWG_PKG_IMAGE)"
 

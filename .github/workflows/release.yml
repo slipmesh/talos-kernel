@@ -1,8 +1,10 @@
-# Triggered by a `vX.Y.Z` tag. Runs `make check-pins` (fast, fails loudly if UPSTREAM_PKGS_REF
-# drifted from what TALOS_VERSION actually pins) then `make kernel`, which builds and pushes both
-# the signed kernel and amneziawg-pkg images (linux/amd64+linux/arm64, one bldr/buildx invocation
-# each, sharing the same signing key - see the Makefile's own comment on why they must not be
-# split across separate invocations) to ghcr.io/slipmesh.
+# Triggered by a `vX.Y.Z[+talosA.B.C]` tag - like ../bird, the release tag *is* the published
+# image tag (`+` swapped for `-`; see cliff.toml's tag_pattern and the Makefile's RELEASE_TAG_SAFE).
+# Runs `make check-pins` (fast, fails loudly if UPSTREAM_PKGS_REF drifted from what TALOS_VERSION
+# actually pins) then `make kernel`, which builds and pushes both the signed kernel and
+# amneziawg-pkg images (linux/amd64+linux/arm64, one bldr/buildx invocation each, sharing the same
+# signing key - see the Makefile's own comment on why they must not be split across separate
+# invocations) to ghcr.io/slipmesh.
 #
 # This is a real kernel compile, not a small C/Rust build like bird/cni-config's own
 # release.yml - `make preflight` wants >=40G free and the standard GitHub-hosted runner's default
@@ -48,4 +50,4 @@ jobs:
         run: make check-pins
 
       - name: Build and push kernel + amneziawg-pkg
-        run: make kernel
+        run: make kernel RELEASE_TAG=${{ github.ref_name }}
