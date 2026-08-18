@@ -31,6 +31,15 @@ ifeq ($(RELEASE_TAG),)
     $(error RELEASE_TAG not set - pass RELEASE_TAG=v0.1.0+talos1.13.8, the git tag this build is released under)
   endif
 endif
+# Only `kernel` builds a single platform and needs to know which - `merge` combines
+# whatever arch-suffixed tags are already in the registry into the final manifest and
+# doesn't take an arch at all. See the "confirmed the hard way" comment on the CI split
+# below for why this isn't multi-platform in one invocation any more.
+ifeq ($(TARGET_ARCH),)
+  ifneq ($(filter-out distclean help hashes checkout-pkgs check-pins preflight merge,$(_GOALS)),)
+    $(error TARGET_ARCH not set - pass TARGET_ARCH=amd64 or TARGET_ARCH=arm64)
+  endif
+endif
 
 BUILD_DIR := build
 PKGS_DIR  := $(BUILD_DIR)/pkgs
@@ -49,6 +58,11 @@ RELEASE_TAG_SAFE     := $(subst +,-,$(RELEASE_TAG))
 KERNEL_IMAGE         := $(DOCKER_NS)/kernel:$(RELEASE_TAG_SAFE)
 AMNEZIAWG_PKG_IMAGE  := $(DOCKER_NS)/amneziawg-pkg:$(RELEASE_TAG_SAFE)
 
+# Per-arch intermediate tags `kernel` actually builds/pushes; `merge` combines them into
+# the two tags above. Only meaningful once TARGET_ARCH is set.
+KERNEL_IMAGE_ARCH        := $(KERNEL_IMAGE)-$(TARGET_ARCH)
+AMNEZIAWG_PKG_IMAGE_ARCH := $(AMNEZIAWG_PKG_IMAGE)-$(TARGET_ARCH)
+
 ##@ General
 
 .PHONY: help
@@ -63,8 +77,9 @@ print-config: ## Show the resolved pins and image names.
 	@echo "pkgs ref       : $(UPSTREAM_PKGS_REF)"
 	@echo "awg ref        : $(AWG_REF) ($(AWG_SHORT))"
 	@echo "release tag    : $(RELEASE_TAG)"
-	@echo "kernel image   : $(KERNEL_IMAGE)"
-	@echo "amneziawg pkg  : $(AMNEZIAWG_PKG_IMAGE)"
+	@echo "target arch    : $(TARGET_ARCH)"
+	@echo "kernel image   : $(KERNEL_IMAGE)  (per-arch: $(KERNEL_IMAGE_ARCH))"
+	@echo "amneziawg pkg  : $(AMNEZIAWG_PKG_IMAGE)  (per-arch: $(AMNEZIAWG_PKG_IMAGE_ARCH))"
 
 .PHONY: check-pins
 check-pins: ## Assert UPSTREAM_PKGS_REF is the pkgs Talos $(TALOS_VERSION) was built from.
@@ -123,13 +138,33 @@ checkout-pkgs: | $(BUILD_DIR) ## Fetch siderolabs/pkgs at the pinned commit, ove
 AWG_ARGS := --build-arg=AWG_REF=$(AWG_REF) --build-arg=AWG_SHA256=$(AWG_SHA256) --build-arg=AWG_SHA512=$(AWG_SHA512)
 
 .PHONY: kernel
-kernel: checkout-pkgs ## Build the kernel + amneziawg module together (shared signing key), push both. Multi-platform (amd64+arm64) in one invocation.
-	@echo "==> building $(KERNEL_IMAGE) (linux/amd64,linux/arm64)"
-	@$(MAKE) -C $(PKGS_DIR) docker-kernel PLATFORM=linux/amd64,linux/arm64 \
-	  TARGET_ARGS="--tag=$(KERNEL_IMAGE) --push=true $(AWG_ARGS)"
-	@echo "==> building $(AMNEZIAWG_PKG_IMAGE) (linux/amd64,linux/arm64)"
-	@$(MAKE) -C $(PKGS_DIR) docker-amneziawg-pkg PLATFORM=linux/amd64,linux/arm64 \
-	  TARGET_ARGS="--tag=$(AMNEZIAWG_PKG_IMAGE) --push=true $(AWG_ARGS)"
+kernel: checkout-pkgs ## Build the kernel + amneziawg module together (shared signing key), push both (this arch).
+	@echo "==> building $(KERNEL_IMAGE_ARCH) (linux/$(TARGET_ARCH))"
+	@$(MAKE) -C $(PKGS_DIR) docker-kernel PLATFORM=linux/$(TARGET_ARCH) \
+	  TARGET_ARGS="--tag=$(KERNEL_IMAGE_ARCH) --push=true $(AWG_ARGS)"
+	@echo "==> building $(AMNEZIAWG_PKG_IMAGE_ARCH) (linux/$(TARGET_ARCH))"
+	@$(MAKE) -C $(PKGS_DIR) docker-amneziawg-pkg PLATFORM=linux/$(TARGET_ARCH) \
+	  TARGET_ARGS="--tag=$(AMNEZIAWG_PKG_IMAGE_ARCH) --push=true $(AWG_ARGS)"
+	@echo
+	@echo "published:"
+	@echo "  $(KERNEL_IMAGE_ARCH)"
+	@echo "  $(AMNEZIAWG_PKG_IMAGE_ARCH)"
+	@echo "run 'make merge RELEASE_TAG=$(RELEASE_TAG)' once every arch is pushed"
+
+# A single `docker buildx --platform linux/amd64,linux/arm64` invocation used to build both
+# arches in one job, but a real kernel compile with the arm64 half running under QEMU
+# emulation (no native arm64 hosted runner used at the time) blew past GitHub Actions' 6h
+# job timeout without finishing - confirmed the hard way on the very first real tag push.
+# Split into a per-arch matrix (native runners both ways, see .github/workflows/release.yml)
+# plus this merge step instead - same pattern router/nftables/awg-extension already use for
+# their own extension images, applied here too now that multi-platform-in-one-job is a
+# demonstrated dead end for a build this size.
+.PHONY: merge
+merge: ## Combine both arches' pushed tags into the final multi-arch manifest.
+	@echo "==> merging $(KERNEL_IMAGE)"
+	@docker buildx imagetools create -t $(KERNEL_IMAGE) $(KERNEL_IMAGE)-amd64 $(KERNEL_IMAGE)-arm64
+	@echo "==> merging $(AMNEZIAWG_PKG_IMAGE)"
+	@docker buildx imagetools create -t $(AMNEZIAWG_PKG_IMAGE) $(AMNEZIAWG_PKG_IMAGE)-amd64 $(AMNEZIAWG_PKG_IMAGE)-arm64
 	@echo
 	@echo "published:"
 	@echo "  $(KERNEL_IMAGE)"

@@ -51,14 +51,21 @@ Like `../bird`, `RELEASE_TAG` *is* the published image tag (`+` swapped for `-`,
 tags can't contain `+`) - see `cliff.toml`'s `tag_pattern` for the exact shape
 (`vX.Y.Z[+talosA.B.C]`).
 
-```sh
-make print-config RELEASE_TAG=v0.1.0+talos1.13.8   # resolved pins, image names
-make preflight                                       # docker/buildx/git/curl present, >=40G free
-make kernel RELEASE_TAG=v0.1.0+talos1.13.8              # build kernel + amneziawg module together, push both (~15-40 min)
-```
+`kernel` also needs `TARGET_ARCH=amd64|arm64` - it builds and pushes one arch at a time
+(`kernel:<tag>-<arch>`, `amneziawg-pkg:<tag>-<arch>`), then `merge` combines both into the
+final tags nothing-arch-specific consumers use. A single multi-platform
+(`linux/amd64,linux/arm64`) invocation used to cover both in one go, but the arm64 half
+compiling under QEMU emulation blew GitHub Actions' 6h job timeout on the first real tag
+push - see the Makefile's own comment on `merge` and `.github/workflows/release.yml`
+(native `ubuntu-24.04-arm` runner for the arm64 leg instead).
 
-`make kernel` is arch-independent - one multi-platform (`linux/amd64,linux/arm64`)
-`docker buildx` invocation covers both.
+```sh
+make print-config RELEASE_TAG=v0.1.0+talos1.13.8 TARGET_ARCH=amd64   # resolved pins, image names
+make preflight                                                         # docker/buildx/git/curl present, >=40G free
+make kernel RELEASE_TAG=v0.1.0+talos1.13.8 TARGET_ARCH=amd64              # this arch: kernel + module, push both (~15-40 min)
+make kernel RELEASE_TAG=v0.1.0+talos1.13.8 TARGET_ARCH=arm64              # the other arch
+make merge RELEASE_TAG=v0.1.0+talos1.13.8                                    # combine both into the final multi-arch tags
+```
 
 ## Pinning
 

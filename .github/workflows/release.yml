@@ -1,17 +1,22 @@
 # Triggered by a `vX.Y.Z[+talosA.B.C]` tag - like ../bird, the release tag *is* the published
-# image tag (`+` swapped for `-`; see cliff.toml's tag_pattern and the Makefile's RELEASE_TAG_SAFE).
-# Runs `make check-pins` (fast, fails loudly if UPSTREAM_PKGS_REF drifted from what TALOS_VERSION
-# actually pins) then `make kernel`, which builds and pushes both the signed kernel and
-# amneziawg-pkg images (linux/amd64+linux/arm64, one bldr/buildx invocation each, sharing the same
-# signing key - see the Makefile's own comment on why they must not be split across separate
-# invocations) to ghcr.io/slipmesh.
+# image tag (`+` swapped for `-`; see cliff.toml's tag_pattern and the Makefile's
+# RELEASE_TAG_SAFE). Runs `make check-pins` (fast, fails loudly if UPSTREAM_PKGS_REF drifted from
+# what TALOS_VERSION actually pins) then `make kernel`, which builds and pushes both the signed
+# kernel and amneziawg-pkg images.
 #
-# This is a real kernel compile, not a small C/Rust build like bird/cni-config's own
-# release.yml - `make preflight` wants >=40G free and the standard GitHub-hosted runner's default
-# disk is well short of that, hence the disk-reclaim step below. Untested against the real
-# resource ceiling of a GitHub-hosted runner as of writing - the first real tag push here is the
-# actual test; if it runs out of disk or time, the next move is either a larger hosted runner or a
-# self-hosted one, not smaller kernel config.
+# Each arch builds and pushes to its own -amd64/-arm64 tag on its own native runner
+# (ubuntu-24.04-arm for arm64, free for public repos), then a `merge` job combines both into the
+# final untagged-arch manifest `docker buildx imagetools create` reads back from the registry.
+# A single `--platform linux/amd64,linux/arm64` build used to do both in one job, but the arm64
+# half running under QEMU emulation (no native runner used at the time) blew past GitHub Actions'
+# 6h job timeout on the very first real tag push without finishing - confirmed the hard way, see
+# the Makefile's own comment on `merge`. Router/nftables/awg-extension hit the same QEMU cost in
+# their own bldr step (lighter, never actually timed out) and got the same native-runner
+# treatment for consistency and speed.
+#
+# This is still a real kernel compile, not a small C/Rust build like bird/cni-config's own
+# release.yml - `make preflight` wants >=40G free and the standard runner's default disk is well
+# short of that, hence the disk-reclaim step below.
 name: Release kernel + amneziawg-pkg
 
 on:
@@ -23,8 +28,17 @@ permissions:
   packages: write
 
 jobs:
-  release:
-    runs-on: ubuntu-latest
+  build:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
 
@@ -37,7 +51,6 @@ jobs:
           tool-cache: false
           docker-images: false
 
-      - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
 
       - uses: docker/login-action@v3
@@ -49,5 +62,22 @@ jobs:
       - name: Verify UPSTREAM_PKGS_REF still matches TALOS_VERSION
         run: make check-pins
 
-      - name: Build and push kernel + amneziawg-pkg
-        run: make kernel RELEASE_TAG=${{ github.ref_name }}
+      - name: Build and push kernel + amneziawg-pkg (this arch)
+        run: make kernel TARGET_ARCH=${{ matrix.arch }} RELEASE_TAG=${{ github.ref_name }}
+
+  merge:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Combine both arches into the final multi-arch manifest
+        run: make merge RELEASE_TAG=${{ github.ref_name }}
