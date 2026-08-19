@@ -76,7 +76,7 @@ Talos declares which pkgs it was built from, so the pkgs pin is derivable:
 curl https://raw.githubusercontent.com/siderolabs/talos/$TALOS_VERSION/pkg/machinery/gendata/data/pkgs
 ```
 
-For `v1.13.8` that is `v1.13.0-55-gf677246` - commit `f677246`. `make check-pins` asserts
+For `v1.13.9` that is `v1.13.0-60-gf541ca4` - commit `f541ca4`. `make check-pins` asserts
 this.
 
 ## Bumping
