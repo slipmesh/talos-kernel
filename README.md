@@ -26,16 +26,14 @@ BuildKit frontend podman/buildah can't run.
 
 ## This is one of five repos
 
-```
-talos-kernel              (this repo)   -> signed kernel + amneziawg-pkg
-talos-awg-extension                     -> amneziawg system extension (pulls amneziawg-pkg)
-talos-router-extension                  -> router system extension (no kernel dependency)
-talos-nftables-extension                -> nftables system extension (no kernel dependency)
-talos-installer                         -> assembles kernel + N extensions into an installer
-```
+- [talos-kernel](https://github.com/slipmesh/talos-kernel) — signed kernel + `amneziawg-pkg` — **this repo**
+- [talos-awg-extension](https://github.com/slipmesh/talos-awg-extension) — amneziawg system extension (pulls `amneziawg-pkg`)
+- [talos-router-extension](https://github.com/slipmesh/talos-router-extension) — router system extension (no kernel dependency)
+- [talos-nftables-extension](https://github.com/slipmesh/talos-nftables-extension) — nftables system extension (no kernel dependency)
+- [talos-installer](https://github.com/slipmesh/talos-installer) — assembles a kernel + N extensions into an installer
 
 Each repo builds and publishes independently - none of them check out or depend on each
-other's source, only on each other's published OCI tags. Like `../bird`, this repo's own
+other's source, only on each other's published OCI tags. Like `bird`, this repo's own
 git release tag *is* the published image tag (see "Usage"/`RELEASE_TAG` below), so
 consumers name a specific release rather than reconstructing a tag from shared pins:
 `talos-awg-extension` pins the exact release it consumes via its own `versions.env`'s
@@ -47,7 +45,7 @@ Makefile), even though they no longer construct the registry tag.
 ## Usage
 
 `kernel`/`print-config` need `RELEASE_TAG=<the git tag being released>` (no default).
-Like `../bird`, `RELEASE_TAG` *is* the published image tag (`+` swapped for `-`, since OCI
+Like `bird`, `RELEASE_TAG` *is* the published image tag (`+` swapped for `-`, since OCI
 tags can't contain `+`) - see `cliff.toml`'s `tag_pattern` for the exact shape
 (`vX.Y.Z[+talosA.B.C]`).
 
