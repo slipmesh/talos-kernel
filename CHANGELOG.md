@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### CI/CD ⚙️
+
+- Pin amd64 matrix runner to ubuntu-24.04, not the floating ubuntu-latest alias
+
+### Documentation 📚
+
+- Update stale v1.13.8 example refs to v1.13.9
+- Address the reader who cloned one repository, not five
+- State the facts, drop how they were found
+- Scope the QEMU note to local builds
+
+### Miscellaneous 🧹
+
+- Add the standard markdownlint config, fix what it found
+
+## [0.1.1+talos1.13.9] - 2026-08-19
+
+### Fixed 🐛
+
+- Bump to Talos 1.13.9, pull AWG use-after-free fix
+
 ## [0.1.0+talos1.13.8] - 2026-08-18
 
 ### Added ✨
@@ -14,7 +37,7 @@ and follows [Semantic Versioning](https://semver.org/).
 ### CI/CD ⚙️
 
 - Migrate to ghcr.io/slipmesh, add license files and release CI
-- Tag releases like ../bird: git release tag = published image tag
+- Tag releases like the bird repo: git release tag = published image tag
 
 ### Documentation 📚
 
