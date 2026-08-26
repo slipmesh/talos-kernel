@@ -1,7 +1,7 @@
 # talos-kernel
 
-Builds a Talos Linux kernel package with `amneziawg.ko` compiled and signed alongside it
-- the module gets signed by the same per-build key the running kernel's own
+Builds a Talos Linux kernel package with `amneziawg.ko` compiled and signed alongside
+it: the module gets signed by the same per-build key the running kernel's own
 `CONFIG_SYSTEM_TRUSTED_KEYRING` trusts, so `sig_enforce` never needs to be disabled. See
 `docs/kernel-signing.md` for the full mechanism and why lighter alternatives don't work.
 
@@ -13,7 +13,7 @@ siderolabs already has a sanctioned way to sign an out-of-tree kernel module: co
 `gasket-driver` packages use. `patches/pkgs/amneziawg-pkg/pkg.yaml` does exactly that for
 `amneziawg`, overlaid onto a pinned `siderolabs/pkgs` checkout.
 
-```
+```text
 versions.env                  every pin: Talos version, pkgs commit, AWG ref
 patches/pkgs/amneziawg-pkg/   overlaid onto a siderolabs/pkgs checkout - builds the
                                module alongside the kernel, shares its signing key
@@ -26,11 +26,16 @@ BuildKit frontend podman/buildah can't run.
 
 ## This is one of five repos
 
-- [talos-kernel](https://github.com/slipmesh/talos-kernel) — signed kernel + `amneziawg-pkg` — **this repo**
-- [talos-awg-extension](https://github.com/slipmesh/talos-awg-extension) — amneziawg system extension (pulls `amneziawg-pkg`)
-- [talos-router-extension](https://github.com/slipmesh/talos-router-extension) — router system extension (no kernel dependency)
-- [talos-nftables-extension](https://github.com/slipmesh/talos-nftables-extension) — nftables system extension (no kernel dependency)
-- [talos-installer](https://github.com/slipmesh/talos-installer) — assembles a kernel + N extensions into an installer
+- [talos-kernel](https://github.com/slipmesh/talos-kernel) —
+  signed kernel + `amneziawg-pkg` — **this repo**
+- [talos-awg-extension](https://github.com/slipmesh/talos-awg-extension) —
+  amneziawg system extension (pulls `amneziawg-pkg`)
+- [talos-router-extension](https://github.com/slipmesh/talos-router-extension) —
+  router system extension (no kernel dependency)
+- [talos-nftables-extension](https://github.com/slipmesh/talos-nftables-extension) —
+  nftables system extension (no kernel dependency)
+- [talos-installer](https://github.com/slipmesh/talos-installer) —
+  assembles a kernel + N extensions into an installer
 
 Each repo builds and publishes independently - none of them check out or depend on each
 other's source, only on each other's published OCI tags. Like `bird`, this repo's own
