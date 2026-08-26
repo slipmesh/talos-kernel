@@ -33,8 +33,8 @@ ifeq ($(RELEASE_TAG),)
 endif
 # Only `kernel` builds a single platform and needs to know which - `merge` combines
 # whatever arch-suffixed tags are already in the registry into the final manifest and
-# doesn't take an arch at all. See the "confirmed the hard way" comment on the CI split
-# below for why this isn't multi-platform in one invocation any more.
+# doesn't take an arch at all. See the comment on the CI split below for why this isn't
+# multi-platform in one invocation any more.
 ifeq ($(TARGET_ARCH),)
   ifneq ($(filter-out distclean help hashes checkout-pkgs check-pins preflight merge,$(_GOALS)),)
     $(error TARGET_ARCH not set - pass TARGET_ARCH=amd64 or TARGET_ARCH=arm64)
@@ -131,7 +131,7 @@ checkout-pkgs: | $(BUILD_DIR) ## Fetch siderolabs/pkgs at the pinned commit, ove
 # against siderolabs/pkgs' own zfs/gasket-driver packages and bldr's source.
 #
 # bldr loads and validates every pkg.yaml in the checkout up front, regardless of which
-# --target= is actually being built (confirmed the hard way: `docker-kernel` alone fails
+# --target= is actually being built (`docker-kernel` alone fails
 # amneziawg-pkg's own sha256/sha512 length validation if those build-args are absent, even
 # though the kernel target never references that package) - so both invocations get the
 # same full AWG_ARGS, not just the one that actually consumes them.
@@ -151,10 +151,9 @@ kernel: checkout-pkgs ## Build the kernel + amneziawg module together (shared si
 	@echo "  $(AMNEZIAWG_PKG_IMAGE_ARCH)"
 	@echo "run 'make merge RELEASE_TAG=$(RELEASE_TAG)' once every arch is pushed"
 
-# A single `docker buildx --platform linux/amd64,linux/arm64` invocation used to build both
+# A single `docker buildx --platform linux/amd64,linux/arm64` invocation would build both
 # arches in one job, but a real kernel compile with the arm64 half running under QEMU
-# emulation (no native arm64 hosted runner used at the time) blew past GitHub Actions' 6h
-# job timeout without finishing - confirmed the hard way on the very first real tag push.
+# emulation blows past GitHub Actions' 6h job timeout without finishing.
 # Split into a per-arch matrix (native runners both ways, see .github/workflows/release.yml)
 # plus this merge step instead - same pattern router/nftables/awg-extension already use for
 # their own extension images, applied here too now that multi-platform-in-one-job is a

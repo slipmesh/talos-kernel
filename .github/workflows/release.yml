@@ -8,9 +8,8 @@
 # (ubuntu-24.04-arm for arm64, free for public repos), then a `merge` job combines both into the
 # final untagged-arch manifest `docker buildx imagetools create` reads back from the registry.
 # A single `--platform linux/amd64,linux/arm64` build used to do both in one job, but the arm64
-# half running under QEMU emulation (no native runner used at the time) blew past GitHub Actions'
-# 6h job timeout on the very first real tag push without finishing - confirmed the hard way, see
-# the Makefile's own comment on `merge`. Router/nftables/awg-extension hit the same QEMU cost in
+# half running under QEMU emulation blows past GitHub Actions' 6h job timeout without finishing -
+# see the Makefile's own comment on `merge`. Router/nftables/awg-extension hit the same QEMU cost in
 # their own bldr step (lighter, never actually timed out) and got the same native-runner
 # treatment for consistency and speed.
 #
