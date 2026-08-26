@@ -57,10 +57,10 @@ tags can't contain `+`) - see `cliff.toml`'s `tag_pattern` for the exact shape
 `kernel` also needs `TARGET_ARCH=amd64|arm64` - it builds and pushes one arch at a time
 (`kernel:<tag>-<arch>`, `amneziawg-pkg:<tag>-<arch>`), then `merge` combines both into the
 final tags nothing-arch-specific consumers use. A single multi-platform
-(`linux/amd64,linux/arm64`) invocation used to cover both in one go, but the arm64 half
-compiling under QEMU emulation blew GitHub Actions' 6h job timeout on the first real tag
-push - see the Makefile's own comment on `merge` and `.github/workflows/release.yml`
-(native `ubuntu-24.04-arm` runner for the arm64 leg instead).
+(`linux/amd64,linux/arm64`) invocation would cover both in one go, but the arm64 half
+compiling under QEMU emulation exceeds GitHub Actions' 6h job limit - see the Makefile's
+own comment on `merge` and `.github/workflows/release.yml`, which gives each arch a runner
+of its own architecture (`ubuntu-24.04-arm` for arm64).
 
 ```sh
 make print-config RELEASE_TAG=v0.1.0+talos1.13.8 TARGET_ARCH=amd64   # resolved pins, image names
