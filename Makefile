@@ -113,16 +113,17 @@ preflight: ## Check this machine can run the build.
 $(BUILD_DIR):
 	@mkdir -p $@
 
-# No narrow fetch to attempt with an abbreviated id, so fetch every ref blobless and resolve
-# it locally, where git errors on an ambiguous or absent one rather than checking out
-# something else.
+# An abbreviated id can't be fetched, only resolved, so reach for the network solely when it
+# doesn't resolve yet - and resolve it explicitly, where git errors on an ambiguous or absent
+# id rather than checking out something else.
 .PHONY: checkout-pkgs
 checkout-pkgs: | $(BUILD_DIR) ## Fetch siderolabs/pkgs at the pinned commit, overlay patches/pkgs/.
 	@if [ ! -d "$(PKGS_DIR)/.git" ]; then \
 	  echo "==> cloning siderolabs/pkgs"; \
 	  git clone --filter=blob:none --quiet https://github.com/siderolabs/pkgs.git $(PKGS_DIR); \
 	fi
-	@git -C $(PKGS_DIR) fetch --quiet --filter=blob:none --tags origin
+	@git -C $(PKGS_DIR) rev-parse --verify --quiet '$(PKGS_COMMIT)^{commit}' >/dev/null \
+	  || git -C $(PKGS_DIR) fetch --quiet --filter=blob:none --tags origin
 	@full=$$(git -C $(PKGS_DIR) rev-parse --verify '$(PKGS_COMMIT)^{commit}'); \
 	  git -C $(PKGS_DIR) checkout --quiet --force --detach "$$full"
 	@rm -rf $(PKGS_DIR)/amneziawg-pkg
