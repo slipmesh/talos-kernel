@@ -47,6 +47,9 @@ PKGS_DIR  := $(BUILD_DIR)/pkgs
 # PKGS is a `git describe` string (`v1.14.0-15-g2f03590`), which names an OCI tag but not a
 # git ref - `git checkout` needs the commit from its tail. Everything up to the last `-g` is
 # the tag and the distance from it.
+#
+# This is git's *abbreviated* object id, not a 40-character one: usable for a local lookup,
+# never for `git fetch`, which the protocol only serves a full id. See checkout-pkgs.
 PKGS_COMMIT := $(lastword $(subst -g, ,$(PKGS)))
 
 AWG_SHORT := $(shell printf '%.7s' '$(AWG_REF)')
@@ -114,14 +117,19 @@ preflight: ## Check this machine can run the build.
 $(BUILD_DIR):
 	@mkdir -p $@
 
+# PKGS_COMMIT is abbreviated and the wire protocol only serves full object ids, so there is
+# no narrow fetch to attempt - ask for every ref blobless (~4s, ~2MB) and resolve the
+# abbreviation locally, where git errors on an ambiguous or absent one instead of quietly
+# checking out something else.
 .PHONY: checkout-pkgs
 checkout-pkgs: | $(BUILD_DIR) ## Fetch siderolabs/pkgs at the pinned commit, overlay patches/pkgs/.
 	@if [ ! -d "$(PKGS_DIR)/.git" ]; then \
 	  echo "==> cloning siderolabs/pkgs"; \
 	  git clone --filter=blob:none --quiet https://github.com/siderolabs/pkgs.git $(PKGS_DIR); \
 	fi
-	@git -C $(PKGS_DIR) fetch --quiet --filter=blob:none origin $(PKGS_COMMIT) 2>/dev/null || git -C $(PKGS_DIR) fetch --quiet origin
-	@git -C $(PKGS_DIR) checkout --quiet --force --detach $(PKGS_COMMIT)
+	@git -C $(PKGS_DIR) fetch --quiet --filter=blob:none --tags origin
+	@full=$$(git -C $(PKGS_DIR) rev-parse --verify '$(PKGS_COMMIT)^{commit}'); \
+	  git -C $(PKGS_DIR) checkout --quiet --force --detach "$$full"
 	@rm -rf $(PKGS_DIR)/amneziawg-pkg
 	@cp -r patches/pkgs/amneziawg-pkg $(PKGS_DIR)/amneziawg-pkg
 

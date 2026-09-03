@@ -87,8 +87,12 @@ as `{{ .BUILD_ARG_PKGS }}`. `make check-pins` asserts the two match exactly.
 It is a `git describe` string rather than a plain tag, and the distinction matters:
 upstream tags pkgs once per minor Talos release and keeps committing to the branch
 afterwards, so `vX.Y.Z` names the tree as of the alpha. For `v1.14.0` the tag carries
-Linux 6.18.44 while Talos ships 6.18.48. The Makefile slices the commit off the tail
-(`PKGS_COMMIT`) for the source checkout.
+Linux 6.18.44 while Talos ships 6.18.48.
+
+For the source checkout the Makefile slices the tail off as `PKGS_COMMIT`. That is git's
+*abbreviated* object id (`f541ca4`), which resolves in a local repository but is never
+fetchable on its own — the protocol serves full ids only — so `checkout-pkgs` fetches every
+ref blobless and resolves it afterwards.
 
 ## Bumping
 
