@@ -79,20 +79,16 @@ Talos declares which pkgs it was built from, so the pkgs pin is derivable:
 curl https://raw.githubusercontent.com/siderolabs/talos/$TALOS_VERSION/pkg/machinery/gendata/data/pkgs
 ```
 
-For `v1.13.9` that is `v1.13.0-60-gf541ca4`. `PKGS` holds that string verbatim, which is
-also upstream's own notation for the pin - `siderolabs/talos` carries it as `PKGS` and
-consumes `ghcr.io/siderolabs/<pkg>:$(PKGS)`, and `siderolabs/extensions` templates read it
-as `{{ .BUILD_ARG_PKGS }}`. `make check-pins` asserts the two match exactly.
+For `v1.13.9` that is `v1.13.0-60-gf541ca4`. `PKGS` holds that string verbatim — upstream's
+own notation, which `siderolabs/talos` and `siderolabs/extensions` also use — and
+`make check-pins` asserts the two match exactly.
 
-It is a `git describe` string rather than a plain tag, and the distinction matters:
-upstream tags pkgs once per minor Talos release and keeps committing to the branch
-afterwards, so `vX.Y.Z` names the tree as of the alpha. For `v1.14.0` the tag carries
-Linux 6.18.44 while Talos ships 6.18.48.
+Not the plain `vX.Y.Z` tag: upstream tags pkgs once per minor Talos release and keeps
+committing afterwards, so for `v1.14.0` the tag carries Linux 6.18.44 while Talos ships
+6.18.48.
 
-For the source checkout the Makefile slices the tail off as `PKGS_COMMIT`. That is git's
-*abbreviated* object id (`f541ca4`), which resolves in a local repository but is never
-fetchable on its own — the protocol serves full ids only — so `checkout-pkgs` fetches every
-ref blobless and resolves it afterwards.
+`PKGS_COMMIT` is the abbreviated object id off its tail, which is why `checkout-pkgs`
+fetches every ref before resolving it.
 
 ## Bumping
 

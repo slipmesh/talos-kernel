@@ -44,12 +44,8 @@ endif
 BUILD_DIR := build
 PKGS_DIR  := $(BUILD_DIR)/pkgs
 
-# PKGS is a `git describe` string (`v1.14.0-15-g2f03590`), which names an OCI tag but not a
-# git ref - `git checkout` needs the commit from its tail. Everything up to the last `-g` is
-# the tag and the distance from it.
-#
-# This is git's *abbreviated* object id, not a 40-character one: usable for a local lookup,
-# never for `git fetch`, which the protocol only serves a full id. See checkout-pkgs.
+# The abbreviated object id off the tail of PKGS: resolves locally, never fetchable - the
+# protocol serves full ids only. See checkout-pkgs.
 PKGS_COMMIT := $(lastword $(subst -g, ,$(PKGS)))
 
 AWG_SHORT := $(shell printf '%.7s' '$(AWG_REF)')
@@ -117,10 +113,9 @@ preflight: ## Check this machine can run the build.
 $(BUILD_DIR):
 	@mkdir -p $@
 
-# PKGS_COMMIT is abbreviated and the wire protocol only serves full object ids, so there is
-# no narrow fetch to attempt - ask for every ref blobless (~4s, ~2MB) and resolve the
-# abbreviation locally, where git errors on an ambiguous or absent one instead of quietly
-# checking out something else.
+# No narrow fetch to attempt with an abbreviated id, so fetch every ref blobless and resolve
+# it locally, where git errors on an ambiguous or absent one rather than checking out
+# something else.
 .PHONY: checkout-pkgs
 checkout-pkgs: | $(BUILD_DIR) ## Fetch siderolabs/pkgs at the pinned commit, overlay patches/pkgs/.
 	@if [ ! -d "$(PKGS_DIR)/.git" ]; then \
