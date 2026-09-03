@@ -1,6 +1,6 @@
 # Triggered by a `vX.Y.Z[+talosA.B.C]` tag - like ../bird, the release tag *is* the published
 # image tag (`+` swapped for `-`; see cliff.toml's tag_pattern and the Makefile's
-# RELEASE_TAG_SAFE). Runs `make check-pins` (fast, fails loudly if UPSTREAM_PKGS_REF drifted from
+# RELEASE_TAG_SAFE). Runs `make check-pins` (fast, fails loudly if PKGS drifted from
 # what TALOS_VERSION actually pins) then `make kernel`, which builds and pushes both the signed
 # kernel and amneziawg-pkg images.
 #
@@ -58,7 +58,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify UPSTREAM_PKGS_REF still matches TALOS_VERSION
+      - name: Verify PKGS still matches TALOS_VERSION
         run: make check-pins
 
       - name: Build and push kernel + amneziawg-pkg (this arch)
