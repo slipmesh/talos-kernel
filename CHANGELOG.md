@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and follows [Semantic Versioning](https://semver.org/).
 
+## [0.1.4+talos1.14.0] - 2026-09-04
+
+### Added ✨
+
+- Build against Talos v1.14.0
+
+### Changed 🔧
+
+- Pin pkgs by the describe string Talos publishes
+
+### Documentation 📚
+
+- Trim the pkgs pin comments to the constraint
+
+### Fixed 🐛
+
+- Resolve the abbreviated pkgs id after fetching, not during
+
+### Performance 🚀
+
+- Fetch pkgs only when the pinned commit is missing
+
 ## [0.1.3+talos1.13.9] - 2026-08-27
 
 ### Added ✨
