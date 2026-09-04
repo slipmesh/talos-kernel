@@ -79,7 +79,7 @@ Talos declares which pkgs it was built from, so the pkgs pin is derivable:
 curl https://raw.githubusercontent.com/siderolabs/talos/$TALOS_VERSION/pkg/machinery/gendata/data/pkgs
 ```
 
-For `v1.13.9` that is `v1.13.0-60-gf541ca4`. `PKGS` holds that string verbatim — upstream's
+For `v1.14.0` that is `v1.14.0-15-g2f03590`. `PKGS` holds that string verbatim — upstream's
 own notation, which `siderolabs/talos` and `siderolabs/extensions` also use — and
 `make check-pins` asserts the two match exactly.
 
@@ -87,8 +87,9 @@ Not the plain `vX.Y.Z` tag: upstream tags pkgs once per minor Talos release and 
 committing afterwards, so for `v1.14.0` the tag carries Linux 6.18.44 while Talos ships
 6.18.48.
 
-`PKGS_COMMIT` is the abbreviated object id off its tail, which is why `checkout-pkgs`
-fetches every ref before resolving it.
+`PKGS_COMMIT` is the abbreviated object id off its tail. An abbreviated id cannot be
+fetched — the protocol serves full ids only — so `checkout-pkgs` resolves it locally and
+reaches for the network only when it does not resolve yet.
 
 ## Bumping
 
