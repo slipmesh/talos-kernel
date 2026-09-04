@@ -79,13 +79,21 @@ Talos declares which pkgs it was built from, so the pkgs pin is derivable:
 curl https://raw.githubusercontent.com/siderolabs/talos/$TALOS_VERSION/pkg/machinery/gendata/data/pkgs
 ```
 
-For `v1.13.9` that is `v1.13.0-60-gf541ca4` - commit `f541ca4`. `make check-pins` asserts
-this.
+For `v1.13.9` that is `v1.13.0-60-gf541ca4`. `PKGS` holds that string verbatim — upstream's
+own notation, which `siderolabs/talos` and `siderolabs/extensions` also use — and
+`make check-pins` asserts the two match exactly.
+
+Not the plain `vX.Y.Z` tag: upstream tags pkgs once per minor Talos release and keeps
+committing afterwards, so for `v1.14.0` the tag carries Linux 6.18.44 while Talos ships
+6.18.48.
+
+`PKGS_COMMIT` is the abbreviated object id off its tail, which is why `checkout-pkgs`
+fetches every ref before resolving it.
 
 ## Bumping
 
-**Talos:** set `TALOS_VERSION`, update `UPSTREAM_PKGS_REF` to whatever the command under
-"Pinning" returns, `make check-pins`, then `make distclean && make kernel
+**Talos:** set `TALOS_VERSION`, set `PKGS` to whatever the command under "Pinning"
+returns, `make check-pins`, then `make distclean && make kernel
 RELEASE_TAG=<new release tag>`.
 
 **AmneziaWG:** set `AWG_REF`, run `make hashes`, paste both values back, `make kernel

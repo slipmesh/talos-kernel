@@ -44,6 +44,10 @@ endif
 BUILD_DIR := build
 PKGS_DIR  := $(BUILD_DIR)/pkgs
 
+# The abbreviated object id off the tail of PKGS: resolves locally, never fetchable - the
+# protocol serves full ids only. See checkout-pkgs.
+PKGS_COMMIT := $(lastword $(subst -g, ,$(PKGS)))
+
 AWG_SHORT := $(shell printf '%.7s' '$(AWG_REF)')
 
 # Registry tags follow ../bird's own convention: the git release tag *is* the image tag
@@ -74,7 +78,7 @@ help: ## Show this help.
 .PHONY: print-config
 print-config: ## Show the resolved pins and image names.
 	@echo "talos          : $(TALOS_VERSION)"
-	@echo "pkgs ref       : $(UPSTREAM_PKGS_REF)"
+	@echo "pkgs           : $(PKGS) (commit $(PKGS_COMMIT))"
 	@echo "awg ref        : $(AWG_REF) ($(AWG_SHORT))"
 	@echo "release tag    : $(RELEASE_TAG)"
 	@echo "target arch    : $(TARGET_ARCH)"
@@ -82,16 +86,16 @@ print-config: ## Show the resolved pins and image names.
 	@echo "amneziawg pkg  : $(AMNEZIAWG_PKG_IMAGE)  (per-arch: $(AMNEZIAWG_PKG_IMAGE_ARCH))"
 
 .PHONY: check-pins
-check-pins: ## Assert UPSTREAM_PKGS_REF is the pkgs Talos $(TALOS_VERSION) was built from.
+check-pins: ## Assert PKGS is the pkgs Talos $(TALOS_VERSION) was built from.
 	@want=$$(curl -sS --fail "https://raw.githubusercontent.com/siderolabs/talos/$(TALOS_VERSION)/pkg/machinery/gendata/data/pkgs"); \
 	echo "talos $(TALOS_VERSION) declares pkgs: $$want"; \
-	short=$${want##*-g}; \
-	case "$(UPSTREAM_PKGS_REF)" in \
-	  $$short*) echo "UPSTREAM_PKGS_REF matches ($$short)";; \
-	  *) echo "MISMATCH: $(UPSTREAM_PKGS_REF) does not start with $$short"; \
-	     echo "the module would be built for the wrong kernel and silently fail to load"; \
-	     exit 1;; \
-	esac
+	if [ "$(PKGS)" = "$$want" ]; then \
+	  echo "PKGS matches"; \
+	else \
+	  echo "MISMATCH: PKGS is $(PKGS)"; \
+	  echo "the module would be built for the wrong kernel and silently fail to load"; \
+	  exit 1; \
+	fi
 
 .PHONY: preflight
 preflight: ## Check this machine can run the build.
@@ -109,14 +113,19 @@ preflight: ## Check this machine can run the build.
 $(BUILD_DIR):
 	@mkdir -p $@
 
+# An abbreviated id can't be fetched, only resolved, so reach for the network solely when it
+# doesn't resolve yet - and resolve it explicitly, where git errors on an ambiguous or absent
+# id rather than checking out something else.
 .PHONY: checkout-pkgs
 checkout-pkgs: | $(BUILD_DIR) ## Fetch siderolabs/pkgs at the pinned commit, overlay patches/pkgs/.
 	@if [ ! -d "$(PKGS_DIR)/.git" ]; then \
 	  echo "==> cloning siderolabs/pkgs"; \
 	  git clone --filter=blob:none --quiet https://github.com/siderolabs/pkgs.git $(PKGS_DIR); \
 	fi
-	@git -C $(PKGS_DIR) fetch --quiet --filter=blob:none origin $(UPSTREAM_PKGS_REF) 2>/dev/null || git -C $(PKGS_DIR) fetch --quiet origin
-	@git -C $(PKGS_DIR) checkout --quiet --force --detach $(UPSTREAM_PKGS_REF)
+	@git -C $(PKGS_DIR) rev-parse --verify --quiet '$(PKGS_COMMIT)^{commit}' >/dev/null \
+	  || git -C $(PKGS_DIR) fetch --quiet --filter=blob:none --tags origin
+	@full=$$(git -C $(PKGS_DIR) rev-parse --verify '$(PKGS_COMMIT)^{commit}'); \
+	  git -C $(PKGS_DIR) checkout --quiet --force --detach "$$full"
 	@rm -rf $(PKGS_DIR)/amneziawg-pkg
 	@cp -r patches/pkgs/amneziawg-pkg $(PKGS_DIR)/amneziawg-pkg
 
