@@ -49,7 +49,7 @@ steps:
           CONFIG_MODULE_SIG_ALL=y
 
         # The module is GPL-2.0, and whatever ships it owes its recipients a copy of
-        # the licence (GPL-2 s1, reaching object code through s3). This is the only
+        # the license (GPL-2 s1, reaching object code through s3). This is the only
         # place holding the source, so the text leaves here with the module instead of
         # being fetched again by every consumer that packages it.
         install -D -m 0644 COPYING /rootfs/usr/local/share/licenses/amneziawg/COPYING
