@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and follows [Semantic Versioning](https://semver.org/).
 
+## [0.1.5+talos1.14.0] - 2026-09-11
+
+### Added ✨
+
+- Ship the module's licence with it, and take upstream's trailers fix
+
 ## [0.1.4+talos1.14.0] - 2026-09-04
 
 ### Added ✨
