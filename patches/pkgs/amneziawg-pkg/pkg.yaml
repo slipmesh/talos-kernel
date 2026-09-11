@@ -47,10 +47,20 @@ steps:
         make -j $(nproc) -C /src M="$(pwd)/src" modules_install DESTDIR=/rootfs \
           INSTALL_MOD_PATH=/rootfs/usr INSTALL_MOD_DIR=extras INSTALL_MOD_STRIP=1 \
           CONFIG_MODULE_SIG_ALL=y
+
+        # The module is GPL-2.0, and whatever ships it owes its recipients a copy of
+        # the licence (GPL-2 s1, reaching object code through s3). This is the only
+        # place holding the source, so the text leaves here with the module instead of
+        # being fetched again by every consumer that packages it.
+        install -D -m 0644 COPYING /rootfs/usr/local/share/licenses/amneziawg/COPYING
     test:
       - |
         # https://www.kernel.org/doc/html/v4.15/admin-guide/module-signing.html#signed-modules-and-stripping
         find /rootfs/usr/lib/modules -name '*.ko' -exec grep -FL '~Module signature appended~' {} \+
+      - |
+        # Matched on the version line, not the title, which GPLv3 shares - an upstream
+        # relicense should fail here rather than ship as GPL-2.0.
+        grep -q 'Version 2, June 1991' /rootfs/usr/local/share/licenses/amneziawg/COPYING
 finalize:
   - from: /rootfs
     to: /
