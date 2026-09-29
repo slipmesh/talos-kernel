@@ -79,7 +79,7 @@ Talos declares which pkgs it was built from, so the pkgs pin is derivable:
 curl https://raw.githubusercontent.com/siderolabs/talos/$TALOS_VERSION/pkg/machinery/gendata/data/pkgs
 ```
 
-For `v1.14.0` that is `v1.14.0-15-g2f03590`. `PKGS` holds that string verbatim — upstream's
+For `v1.14.2` that is `v1.14.0-37-g6c312e4`. `PKGS` holds that string verbatim — upstream's
 own notation, which `siderolabs/talos` and `siderolabs/extensions` also use — and
 `make check-pins` asserts the two match exactly.
 
