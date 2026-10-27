@@ -38,7 +38,7 @@ BuildKit frontend podman/buildah can't run.
   assembles a kernel + N extensions into an installer
 
 Each repo builds and publishes independently - none of them check out or depend on each
-other's source, only on each other's published OCI tags. Like `bird`, this repo's own
+other's source, only on each other's published OCI tags. This repo's own
 git release tag *is* the published image tag (see "Usage"/`RELEASE_TAG` below), so
 consumers name a specific release rather than reconstructing a tag from shared pins:
 `talos-awg-extension` pins the exact release it consumes via its own `versions.env`'s
@@ -50,7 +50,7 @@ Makefile), even though they no longer construct the registry tag.
 ## Usage
 
 `kernel`/`print-config` need `RELEASE_TAG=<the git tag being released>` (no default).
-Like `bird`, `RELEASE_TAG` *is* the published image tag (`+` swapped for `-`, since OCI
+`RELEASE_TAG` *is* the published image tag (`+` swapped for `-`, since OCI
 tags can't contain `+`) - see `cliff.toml`'s `tag_pattern` for the exact shape
 (`vX.Y.Z[+talosA.B.C]`).
 

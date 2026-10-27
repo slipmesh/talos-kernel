@@ -13,7 +13,7 @@
 # their own bldr step (lighter, never actually timed out) and got the same native-runner
 # treatment for consistency and speed.
 #
-# This is still a real kernel compile, not a small C/Rust build like bird/cni-config's own
+# This is still a real kernel compile, not a small Rust build like cni-config's own
 # release.yml - `make preflight` wants >=40G free and the standard runner's default disk is well
 # short of that, hence the disk-reclaim step below.
 name: Release kernel + amneziawg-pkg
