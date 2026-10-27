@@ -50,7 +50,7 @@ PKGS_COMMIT := $(lastword $(subst -g, ,$(PKGS)))
 
 AWG_SHORT := $(shell printf '%.7s' '$(AWG_REF)')
 
-# Registry tags follow ../bird's own convention: the git release tag *is* the image tag
+# The git release tag *is* the image tag
 # (`+` swapped for `-`, since OCI tags can't contain `+`) - RELEASE_TAG is required, not
 # derived from TALOS_VERSION/AWG_REF, so a rebuild against unchanged pins still needs an
 # explicit new release to publish under. One repo per artifact, matching upstream's own

@@ -1,4 +1,4 @@
-# Triggered by a `vX.Y.Z[+talosA.B.C]` tag - like ../bird, the release tag *is* the published
+# Triggered by a `vX.Y.Z[+talosA.B.C]` tag - the release tag *is* the published
 # image tag (`+` swapped for `-`; see cliff.toml's tag_pattern and the Makefile's
 # RELEASE_TAG_SAFE). Runs `make check-pins` (fast, fails loudly if PKGS drifted from
 # what TALOS_VERSION actually pins) then `make kernel`, which builds and pushes both the signed
