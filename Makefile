@@ -50,14 +50,9 @@ PKGS_COMMIT := $(lastword $(subst -g, ,$(PKGS)))
 
 AWG_SHORT := $(shell printf '%.7s' '$(AWG_REF)')
 
-# Registry tags follow ../bird's own convention: the git release tag *is* the image tag
-# (`+` swapped for `-`, since OCI tags can't contain `+`) - RELEASE_TAG is required, not
-# derived from TALOS_VERSION/AWG_REF, so a rebuild against unchanged pins still needs an
-# explicit new release to publish under. One repo per artifact, matching upstream's own
-# convention (ghcr.io/siderolabs/kernel, ghcr.io/siderolabs/zfs-pkg, ...) -
-# siderolabs/extensions' pkg.yaml templates expect exactly this shape
-# ({{ .BUILD_ARG_PKGS_PREFIX }}/<name>:{{ .BUILD_ARG_PKGS }}), and talos-installer's
-# PKG_KERNEL expects a plain image ref.
+# Images carry the release tag (`+` swapped for `-`, which OCI tags can't hold), so publishing
+# needs an explicit RELEASE_TAG even when no pin changed. The <prefix>/<name>:<tag> shape is what
+# siderolabs/extensions' pkg.yaml templates expect.
 RELEASE_TAG_SAFE     := $(subst +,-,$(RELEASE_TAG))
 KERNEL_IMAGE         := $(DOCKER_NS)/kernel:$(RELEASE_TAG_SAFE)
 AMNEZIAWG_PKG_IMAGE  := $(DOCKER_NS)/amneziawg-pkg:$(RELEASE_TAG_SAFE)
