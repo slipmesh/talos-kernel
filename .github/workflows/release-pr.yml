@@ -1,0 +1,23 @@
+name: Release PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release, vX.Y.Z+sm.N with X.Y.Z the TALOS_VERSION in versions.env.
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  release-pr:
+    uses: slipmesh/.github/.github/workflows/release-pr.yml@v1.2
+    permissions:
+      contents: write
+      pull-requests: write
+    with:
+      version: ${{ inputs.version }}
+      # The version lives in the tag and CHANGELOG.md only; this refuses one that names another
+      # Talos release.
+      bump: make check-version VERSION="$VERSION"
