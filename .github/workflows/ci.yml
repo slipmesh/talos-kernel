@@ -1,0 +1,128 @@
+# Every pull request and every push to main or release-* builds the kernel and amneziawg-pkg for
+# both arches, each on a runner of its own arch: under QEMU the arm64 half outlasts the 6h job
+# limit. Pull requests touching only Markdown skip the build, so a release PR does not rebuild
+# what its merge builds again. main and release-* push the images as `sha-<commit>`.
+#
+# A release builds nothing: the tag retags the commit's `sha-<commit>` images.
+name: CI
+
+on:
+  push:
+    branches: [main, "release-*"]
+    tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
+  pull_request:
+    paths-ignore: ["**.md"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  pins:
+    if: github.ref_type != 'tag'
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v7
+      - run: make check-pins
+
+  build:
+    needs: pins
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-26.04
+          - arch: arm64
+            runner: ubuntu-26.04-arm
+    env:
+      PUBLISH: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-')) }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # A kernel build needs about 40G free, more than a runner has.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        if: env.PUBLISH == 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build the kernel and amneziawg-pkg
+        run: make kernel TARGET_ARCH=${{ matrix.arch }} TAG=sha-${{ github.sha }} PUSH=${{ env.PUBLISH }}
+
+  manifest:
+    needs: build
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-'))
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Combine both arches
+        run: make manifest TAG=sha-${{ github.sha }}
+
+  tag:
+    needs: manifest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-'))
+    uses: slipmesh/.github/.github/workflows/tag-release.yml@v1.2
+    permissions:
+      contents: write
+
+  # Runs for a release commit tagged above, or for a tag pushed by hand.
+  promote-kernel:
+    needs: tag
+    if: ${{ !cancelled() && (github.ref_type == 'tag' || needs.tag.outputs.tag != '') }}
+    uses: slipmesh/.github/.github/workflows/promote.yml@v1.2
+    permissions:
+      contents: read
+      packages: write
+    with:
+      image: ghcr.io/slipmesh/kernel
+      tag: ${{ needs.tag.outputs.tag }}
+
+  promote-amneziawg-pkg:
+    needs: tag
+    if: ${{ !cancelled() && (github.ref_type == 'tag' || needs.tag.outputs.tag != '') }}
+    uses: slipmesh/.github/.github/workflows/promote.yml@v1.2
+    permissions:
+      contents: read
+      packages: write
+    with:
+      image: ghcr.io/slipmesh/amneziawg-pkg
+      tag: ${{ needs.tag.outputs.tag }}
+
+  release:
+    needs: [tag, promote-kernel, promote-amneziawg-pkg]
+    if: ${{ !cancelled() && needs.promote-kernel.result == 'success' && needs.promote-amneziawg-pkg.result == 'success' }}
+    uses: slipmesh/.github/.github/workflows/release.yml@v1.2
+    permissions:
+      contents: write
+      packages: read
+    with:
+      tag: ${{ needs.tag.outputs.tag }}
+      latest: false

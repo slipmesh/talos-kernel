@@ -1,23 +1,12 @@
-# Builds a Talos kernel package with amneziawg.ko compiled and signed alongside it, the
-# way siderolabs builds their own out-of-tree modules (zfs, gasket-driver): the module is
-# compiled *inside* the same buildkit session as the kernel itself (siderolabs/pkgs'
-# `kernel-build` stage), so both get signed by the one signing key that build generates -
-# no persistent PKI of our own, no MOK, no `sig_enforce=0` workaround anywhere downstream.
-# See docs/kernel-signing.md for the full mechanism and why a lighter "just swap the
-# kernel" approach doesn't work.
+# Builds a Talos kernel package with amneziawg.ko compiled and signed alongside it, the way
+# siderolabs builds their own out-of-tree modules (zfs, gasket-driver): the module is compiled
+# against the output of the kernel's own `kernel-build` stage, so both carry the one signing key
+# that build generates - no PKI of our own, no MOK, no `sig_enforce=0` downstream. See
+# docs/kernel-signing.md.
 #
-# Needs Docker + `docker buildx` (siderolabs' real `bldr` toolchain, a custom BuildKit
-# frontend podman/buildah can't run).
-#
-# This is the base of a five-repo pipeline: this repo publishes a signed kernel+module,
-# talos-awg-extension, talos-router-extension, and talos-nftables-extension each package
-# one system extension against it, talos-installer assembles a kernel + N extensions into
-# what nodes actually boot.
-# Each repo builds and publishes independently; nothing here checks out or depends on the
-# others - see each repo's own README for how they're wired together by tag.
-#
-# build/ is disposable: `make distclean && make kernel` reproduces it from versions.env
-# and patches/ alone.
+# Needs Docker with `docker buildx`: bldr is a BuildKit frontend that podman and buildah cannot
+# run. build/ is disposable; `make distclean && make kernel` reproduces it from versions.env and
+# patches/ alone.
 
 include versions.env
 
@@ -26,17 +15,8 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
 _GOALS := $(or $(MAKECMDGOALS),$(.DEFAULT_GOAL))
-ifeq ($(RELEASE_TAG),)
-  ifneq ($(filter-out distclean help hashes checkout-pkgs check-pins preflight,$(_GOALS)),)
-    $(error RELEASE_TAG not set - pass RELEASE_TAG=v0.1.0+talos1.13.8, the git tag this build is released under)
-  endif
-endif
-# Only `kernel` builds a single platform and needs to know which - `merge` combines
-# whatever arch-suffixed tags are already in the registry into the final manifest and
-# doesn't take an arch at all. See the comment on the CI split below for why this isn't
-# multi-platform in one invocation any more.
 ifeq ($(TARGET_ARCH),)
-  ifneq ($(filter-out distclean help hashes checkout-pkgs check-pins preflight merge,$(_GOALS)),)
+  ifneq ($(filter-out help print-config check-pins check-version preflight checkout-pkgs manifest hashes clean distclean,$(_GOALS)),)
     $(error TARGET_ARCH not set - pass TARGET_ARCH=amd64 or TARGET_ARCH=arm64)
   endif
 endif
@@ -48,19 +28,15 @@ PKGS_DIR  := $(BUILD_DIR)/pkgs
 # protocol serves full ids only. See checkout-pkgs.
 PKGS_COMMIT := $(lastword $(subst -g, ,$(PKGS)))
 
-AWG_SHORT := $(shell printf '%.7s' '$(AWG_REF)')
+# Every image is tagged with the commit it was built from; a release retags that image without
+# rebuilding it. The <registry>/<name>:<tag> shape is what siderolabs/extensions' pkg.yaml
+# templates expect.
+TAG  ?= sha-$(shell git rev-parse HEAD 2>/dev/null)
+PUSH ?= true
+ARCHS := amd64 arm64
 
-# Images carry the release tag (`+` swapped for `-`, which OCI tags can't hold), so publishing
-# needs an explicit RELEASE_TAG even when no pin changed. The <prefix>/<name>:<tag> shape is what
-# siderolabs/extensions' pkg.yaml templates expect.
-RELEASE_TAG_SAFE     := $(subst +,-,$(RELEASE_TAG))
-KERNEL_IMAGE         := $(DOCKER_NS)/kernel:$(RELEASE_TAG_SAFE)
-AMNEZIAWG_PKG_IMAGE  := $(DOCKER_NS)/amneziawg-pkg:$(RELEASE_TAG_SAFE)
-
-# Per-arch intermediate tags `kernel` actually builds/pushes; `merge` combines them into
-# the two tags above. Only meaningful once TARGET_ARCH is set.
-KERNEL_IMAGE_ARCH        := $(KERNEL_IMAGE)-$(TARGET_ARCH)
-AMNEZIAWG_PKG_IMAGE_ARCH := $(AMNEZIAWG_PKG_IMAGE)-$(TARGET_ARCH)
+KERNEL_IMAGE        := $(REGISTRY)/kernel:$(TAG)
+AMNEZIAWG_PKG_IMAGE := $(REGISTRY)/amneziawg-pkg:$(TAG)
 
 ##@ General
 
@@ -74,11 +50,9 @@ help: ## Show this help.
 print-config: ## Show the resolved pins and image names.
 	@echo "talos          : $(TALOS_VERSION)"
 	@echo "pkgs           : $(PKGS) (commit $(PKGS_COMMIT))"
-	@echo "awg ref        : $(AWG_REF) ($(AWG_SHORT))"
-	@echo "release tag    : $(RELEASE_TAG)"
-	@echo "target arch    : $(TARGET_ARCH)"
-	@echo "kernel image   : $(KERNEL_IMAGE)  (per-arch: $(KERNEL_IMAGE_ARCH))"
-	@echo "amneziawg pkg  : $(AMNEZIAWG_PKG_IMAGE)  (per-arch: $(AMNEZIAWG_PKG_IMAGE_ARCH))"
+	@echo "awg ref        : $(AWG_REF)"
+	@echo "kernel image   : $(KERNEL_IMAGE)  (per-arch: -<arch>)"
+	@echo "amneziawg pkg  : $(AMNEZIAWG_PKG_IMAGE)  (per-arch: -<arch>)"
 
 .PHONY: check-pins
 check-pins: ## Assert PKGS is the pkgs Talos $(TALOS_VERSION) was built from.
@@ -91,6 +65,12 @@ check-pins: ## Assert PKGS is the pkgs Talos $(TALOS_VERSION) was built from.
 	  echo "the module would be built for the wrong kernel and silently fail to load"; \
 	  exit 1; \
 	fi
+
+.PHONY: check-version
+check-version: ## Assert VERSION is a release of TALOS_VERSION, vX.Y.Z+sm.N.
+	@[[ "$(VERSION)" =~ ^$(subst .,\.,$(TALOS_VERSION))\+sm\.[1-9][0-9]*$$ ]] \
+	  || { echo "VERSION must be $(TALOS_VERSION)+sm.<N>, got '$(VERSION)'"; exit 1; }
+	@echo "$(VERSION) releases Talos $(TALOS_VERSION)"
 
 .PHONY: preflight
 preflight: ## Check this machine can run the build.
@@ -124,55 +104,31 @@ checkout-pkgs: | $(BUILD_DIR) ## Fetch siderolabs/pkgs at the pinned commit, ove
 	@rm -rf $(PKGS_DIR)/amneziawg-pkg
 	@cp -r patches/pkgs/amneziawg-pkg $(PKGS_DIR)/amneziawg-pkg
 
-# kernel+amneziawg-pkg MUST be built back to back against the same warm buildx cache -
-# that's the entire mechanism that gives them the same signing key (kbuild auto-generates
-# certs/signing_key.pem into the kernel-build stage's output the first time `make` runs
-# against it; amneziawg-pkg's `dependencies: [stage: kernel-build]` only sees the *same*
-# key if BuildKit serves that stage from cache rather than re-running it, which produces a
-# fresh random key). Don't insert a `docker builder prune`/`--no-cache` between these two,
-# don't switch buildx builders between them, and don't run them from a script that might
-# retry only one half. See docs/kernel-signing.md for the full explanation, verified
-# against siderolabs/pkgs' own zfs/gasket-driver packages and bldr's source.
+# The kernel and amneziawg-pkg share a signing key only because BuildKit serves the second
+# build's `kernel-build` stage from the first one's cache; a re-run of that stage generates a
+# fresh random key. Keep both builds back to back on one builder: no prune, no --no-cache, no
+# builder switch or retry of one half between them. See docs/kernel-signing.md.
 #
-# bldr loads and validates every pkg.yaml in the checkout up front, regardless of which
-# --target= is actually being built (`docker-kernel` alone fails
-# amneziawg-pkg's own sha256/sha512 length validation if those build-args are absent, even
-# though the kernel target never references that package) - so both invocations get the
-# same full AWG_ARGS, not just the one that actually consumes them.
+# bldr validates every pkg.yaml in the checkout whichever target it builds, so the kernel build
+# needs the AWG build-args too.
 AWG_ARGS := --build-arg=AWG_REF=$(AWG_REF) --build-arg=AWG_SHA256=$(AWG_SHA256) --build-arg=AWG_SHA512=$(AWG_SHA512)
 
 .PHONY: kernel
-kernel: checkout-pkgs ## Build the kernel + amneziawg module together (shared signing key), push both (this arch).
-	@echo "==> building $(KERNEL_IMAGE_ARCH) (linux/$(TARGET_ARCH))"
+kernel: checkout-pkgs ## Build the kernel and the amneziawg module together for this arch, push both.
+	@echo "==> building $(KERNEL_IMAGE)-$(TARGET_ARCH)"
 	@$(MAKE) -C $(PKGS_DIR) docker-kernel PLATFORM=linux/$(TARGET_ARCH) \
-	  TARGET_ARGS="--tag=$(KERNEL_IMAGE_ARCH) --push=true $(AWG_ARGS)"
-	@echo "==> building $(AMNEZIAWG_PKG_IMAGE_ARCH) (linux/$(TARGET_ARCH))"
+	  TARGET_ARGS="--tag=$(KERNEL_IMAGE)-$(TARGET_ARCH) --push=$(PUSH) $(AWG_ARGS)"
+	@echo "==> building $(AMNEZIAWG_PKG_IMAGE)-$(TARGET_ARCH)"
 	@$(MAKE) -C $(PKGS_DIR) docker-amneziawg-pkg PLATFORM=linux/$(TARGET_ARCH) \
-	  TARGET_ARGS="--tag=$(AMNEZIAWG_PKG_IMAGE_ARCH) --push=true $(AWG_ARGS)"
-	@echo
-	@echo "published:"
-	@echo "  $(KERNEL_IMAGE_ARCH)"
-	@echo "  $(AMNEZIAWG_PKG_IMAGE_ARCH)"
-	@echo "run 'make merge RELEASE_TAG=$(RELEASE_TAG)' once every arch is pushed"
+	  TARGET_ARGS="--tag=$(AMNEZIAWG_PKG_IMAGE)-$(TARGET_ARCH) --push=$(PUSH) $(AWG_ARGS)"
 
-# A single `docker buildx --platform linux/amd64,linux/arm64` invocation would build both
-# arches in one job, but a real kernel compile with the arm64 half running under QEMU
-# emulation blows past GitHub Actions' 6h job timeout without finishing.
-# Split into a per-arch matrix (native runners both ways, see .github/workflows/release.yml)
-# plus this merge step instead - same pattern router/nftables/awg-extension already use for
-# their own extension images, applied here too now that multi-platform-in-one-job is a
-# demonstrated dead end for a build this size.
-.PHONY: merge
-merge: ## Combine both arches' pushed tags into the final multi-arch manifest.
-	@echo "==> merging $(KERNEL_IMAGE)"
-	@docker buildx imagetools create -t $(KERNEL_IMAGE) $(KERNEL_IMAGE)-amd64 $(KERNEL_IMAGE)-arm64
-	@echo "==> merging $(AMNEZIAWG_PKG_IMAGE)"
-	@docker buildx imagetools create -t $(AMNEZIAWG_PKG_IMAGE) $(AMNEZIAWG_PKG_IMAGE)-amd64 $(AMNEZIAWG_PKG_IMAGE)-arm64
-	@echo
-	@echo "published:"
-	@echo "  $(KERNEL_IMAGE)"
-	@echo "  $(AMNEZIAWG_PKG_IMAGE)"
-	@echo "consumers (talos-awg-extension, talos-installer) need TALOS_VERSION=$(TALOS_VERSION) AWG_REF=$(AWG_REF) to match"
+# Under QEMU the arm64 half of a kernel build outlasts the 6h job limit, so each arch builds on a
+# runner of its own and this combines them.
+.PHONY: manifest
+manifest: ## Combine both arches' pushed images into the multi-arch tags.
+	@for image in $(KERNEL_IMAGE) $(AMNEZIAWG_PKG_IMAGE); do \
+	  docker buildx imagetools create -t "$$image" $(foreach a,$(ARCHS),"$$image-$(a)"); \
+	done
 
 ##@ Maintenance
 
@@ -185,7 +141,7 @@ hashes: ## Recompute AWG_SHA256/AWG_SHA512 for the current AWG_REF.
 	rm -f "$$tmp"
 
 .PHONY: clean
-clean: ## No separate build output to drop - kept for symmetry with the other repos.
+clean: ## Nothing outside build/ to drop.
 	@true
 
 .PHONY: distclean

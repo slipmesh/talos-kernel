@@ -88,20 +88,17 @@ just works once the `pkg.yaml` is on disk.
 
 ## Downstream: packaging and the final installer
 
-This repo's job stops at publishing a signed `kernel` + `amneziawg-pkg` pair - what
-happens to them next lives in sibling repos, each with their own docs:
+This repository stops at publishing a signed `kernel` and `amneziawg-pkg` pair.
+[talos-installer](https://github.com/slipmesh/talos-installer) takes both from one release:
 
-- **`../talos-awg-extension`** pulls `amneziawg-pkg` in as a plain OCI-image
-  `dependencies:` entry (via `siderolabs/extensions`' own `pkg.yaml` mechanism, the same
-  one `zfs`'s userspace-facing half uses for `zfs-pkg`) and copies the already-signed
-  `.ko` across - no recompilation, so the signature travels untouched. See that repo's
-  `docs/kernel-signing.md`.
-- **`../talos-installer`** takes this repo's published `kernel` image as `PKG_KERNEL` and
-  extracts a coherent `vmlinuz`+`initramfs.xz` pair from it (so everything in the
-  initramfs, including things like `virtio_pci.ko`, comes from the same signed build as
-  `amneziawg.ko` - no mismatched-signature risk), then bind-mounts those into the stock
-  `ghcr.io/siderolabs/imager` at `docker run` time rather than rebuilding a custom imager
-  image. See that repo's `docs/kernel-signing.md`.
+- Its `amneziawg` extension pulls `amneziawg-pkg` in as an OCI-image `dependencies:` entry, the
+  mechanism siderolabs/extensions uses for `zfs-pkg`, and copies the signed `.ko` across without
+  recompiling it, so the signature travels untouched.
+- Its installer extracts `vmlinuz` and `initramfs.xz` from the `kernel` image and bind-mounts them
+  into the stock `ghcr.io/siderolabs/imager`. Everything in the initramfs, `virtio_pci.ko`
+  included, comes from the same signed build as `amneziawg.ko`.
+
+See its `docs/kernel-signing.md`.
 
 ## Verifying it worked
 
