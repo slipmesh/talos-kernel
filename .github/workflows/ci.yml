@@ -1,9 +1,10 @@
 # Every pull request and every push to main or release-* builds the kernel and amneziawg-pkg for
 # both arches, each on a runner of its own arch: under QEMU the arm64 half outlasts the 6h job
-# limit. Pull requests touching only Markdown skip the build, so a release PR does not rebuild
-# what its merge builds again. main and release-* push the images as `sha-<commit>`.
+# limit. main and release-* push the images as `sha-<commit>`. Markdown is in no image, so a pull
+# request or push that changes only Markdown builds nothing.
 #
-# A release builds nothing: the tag retags the commit's `sha-<commit>` images.
+# A release builds nothing: the tag retags the `sha-<commit>` images of the commit it was cut from,
+# or of its nearest built ancestor when only Markdown changed since, as a release commit does.
 name: CI
 
 on:
@@ -24,12 +25,24 @@ jobs:
   pins:
     if: github.ref_type != 'tag'
     runs-on: ubuntu-26.04
+    outputs:
+      build: ${{ steps.changes.outputs.build }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+
       - run: make check-pins
+
+      # The rulesets admit only squash merges, so a push to main or release-* is one commit.
+      - name: Check whether anything but Markdown changed
+        id: changes
+        run: |
+          if git diff --quiet HEAD^ HEAD -- ':!*.md'; then echo build=false; else echo build=true; fi >> "$GITHUB_OUTPUT"
 
   build:
     needs: pins
+    if: needs.pins.outputs.build == 'true'
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
@@ -87,9 +100,9 @@ jobs:
         run: make manifest TAG=sha-${{ github.sha }}
 
   tag:
-    needs: manifest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-'))
-    uses: slipmesh/.github/.github/workflows/tag-release.yml@v1.2
+    needs: [pins, manifest]
+    if: ${{ !cancelled() && github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-')) && (needs.manifest.result == 'success' || (needs.pins.result == 'success' && needs.pins.outputs.build == 'false')) }}
+    uses: slipmesh/.github/.github/workflows/tag-release.yml@v1.3
     permissions:
       contents: write
 
@@ -97,7 +110,7 @@ jobs:
   promote-kernel:
     needs: tag
     if: ${{ !cancelled() && (github.ref_type == 'tag' || needs.tag.outputs.tag != '') }}
-    uses: slipmesh/.github/.github/workflows/promote.yml@v1.2
+    uses: slipmesh/.github/.github/workflows/promote.yml@v1.3
     permissions:
       contents: read
       packages: write
@@ -108,7 +121,7 @@ jobs:
   promote-amneziawg-pkg:
     needs: tag
     if: ${{ !cancelled() && (github.ref_type == 'tag' || needs.tag.outputs.tag != '') }}
-    uses: slipmesh/.github/.github/workflows/promote.yml@v1.2
+    uses: slipmesh/.github/.github/workflows/promote.yml@v1.3
     permissions:
       contents: read
       packages: write
@@ -119,7 +132,7 @@ jobs:
   release:
     needs: [tag, promote-kernel, promote-amneziawg-pkg]
     if: ${{ !cancelled() && needs.promote-kernel.result == 'success' && needs.promote-amneziawg-pkg.result == 'success' }}
-    uses: slipmesh/.github/.github/workflows/release.yml@v1.2
+    uses: slipmesh/.github/.github/workflows/release.yml@v1.3
     permissions:
       contents: write
       packages: read
