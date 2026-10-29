@@ -24,7 +24,7 @@ ships patches for it.
 3. The pull request it opens changes only `CHANGELOG.md`. A bot opened it, so its checks wait for
    Approve workflows to run; the merge does not need them. Merge it.
 4. Only this push builds: the kernel and amneziawg-pkg for both arches, about two hours, pushed as
-   `sha-<commit>`. Once the build succeeded the commit is tagged, both images are retagged as
+   `sha-<commit>`. Once the build succeeds, the commit is tagged, both images are retagged as
    `kernel:<version>` and `amneziawg-pkg:<version>` by digest, and the GitHub Release is created,
    not marked latest, and marked pre-release for an alpha or beta. A failed build leaves no tag, so
    the same version can be released again after the fix.
