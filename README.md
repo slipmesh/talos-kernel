@@ -44,11 +44,9 @@ pushing.
 
 ## CI and releases
 
-Every pull request and every push to `main` or a `release-*` branch builds both images for both
-arches, each on a runner of its own arch, unless it changes only Markdown, which is in no image. A
-push to `main` or `release-*` publishes them as `sha-<commit>` and merges the arches.
-
-A release builds nothing: it retags the `sha-<commit>` images of the commit it was cut from. See
+Pull requests and pushes check the pins and build nothing. Only the push of a merged release PR
+builds both images for both arches, each on a runner of its own arch, publishes them as
+`sha-<commit>`, merges the arches, then tags the commit and retags both images as the release. See
 [RELEASING.md](docs/RELEASING.md).
 
 ## Pinning
