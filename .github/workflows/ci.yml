@@ -25,7 +25,7 @@ jobs:
 
   release-commit:
     if: github.event_name == 'push'
-    uses: slipmesh/.github/.github/workflows/release-commit.yml@v2
+    uses: slipmesh/.github/.github/workflows/release-commit.yml@v2.1
 
   build:
     needs: [pins, release-commit]
@@ -84,7 +84,7 @@ jobs:
 
   tag:
     needs: [release-commit, manifest]
-    uses: slipmesh/.github/.github/workflows/tag-release.yml@v2
+    uses: slipmesh/.github/.github/workflows/tag-release.yml@v2.1
     permissions:
       contents: write
     with:
@@ -92,7 +92,7 @@ jobs:
 
   promote-kernel:
     needs: [release-commit, tag]
-    uses: slipmesh/.github/.github/workflows/promote.yml@v2
+    uses: slipmesh/.github/.github/workflows/promote.yml@v2.1
     permissions:
       contents: read
       packages: write
@@ -102,7 +102,7 @@ jobs:
 
   promote-amneziawg-pkg:
     needs: [release-commit, tag]
-    uses: slipmesh/.github/.github/workflows/promote.yml@v2
+    uses: slipmesh/.github/.github/workflows/promote.yml@v2.1
     permissions:
       contents: read
       packages: write
@@ -112,9 +112,10 @@ jobs:
 
   release:
     needs: [release-commit, promote-kernel, promote-amneziawg-pkg]
-    uses: slipmesh/.github/.github/workflows/release.yml@v2
+    uses: slipmesh/.github/.github/workflows/release.yml@v2.1
     permissions:
       contents: write
     with:
       tag: ${{ needs.release-commit.outputs.version }}
+      latest: ${{ needs.release-commit.outputs.latest == 'true' }}
       prerelease: ${{ needs.release-commit.outputs.prerelease == 'true' }}
