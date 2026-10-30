@@ -21,13 +21,15 @@ ships patches for it.
    pull request, if the release is for a new Talos patch.
 2. Run Actions, then Release PR, on the release branch with the version, such as `v1.14.5+sm.1`.
    It refuses a version that does not name `TALOS_VERSION`.
-3. The pull request it opens changes only `CHANGELOG.md`. A bot opened it, so its checks wait for
-   Approve workflows to run; the merge does not need them. Merge it.
+3. The pull request it opens changes only `CHANGELOG.md`. The push of the merge checks the pins
+   again, so it does not wait on this pull request's. Merge it.
 4. Only this push builds: the kernel and amneziawg-pkg for both arches, about two hours, pushed as
-   `sha-<commit>`. Once the build succeeds, the commit is tagged, both images are retagged as
-   `kernel:<version>` and `amneziawg-pkg:<version>` by digest, and the GitHub Release is created,
+   `sha-<commit>`. Once the build succeeds, both images are retagged as `kernel:<version>` and
+   `amneziawg-pkg:<version>` by digest, the commit is tagged, and the GitHub Release is created,
    marked latest when it is the newest stable release, and pre-release for an alpha or beta. A
    failed build leaves no tag, so the same version can be released again after the fix.
+   If a later step fails, Re-run failed jobs finishes the release while the run's artifacts last,
+   14 days; a push whose release commit is already tagged builds nothing.
 
 Every other pull request and push checks the pins and builds nothing.
 
