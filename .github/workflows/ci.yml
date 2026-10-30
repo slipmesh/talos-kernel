@@ -1,20 +1,16 @@
-# Every pull request and every push to main or release-* builds the kernel and amneziawg-pkg for
-# both arches, each on a runner of its own arch: under QEMU the arm64 half outlasts the 6h job
-# limit. Pull requests touching only Markdown skip the build, so a release PR does not rebuild
-# what its merge builds again. main and release-* push the images as `sha-<commit>`.
-#
-# A release builds nothing: the tag retags the commit's `sha-<commit>` images.
+# Pull requests and pushes check the pins; only a merged release PR is built, in its own run, and
+# released. That build makes the kernel and amneziawg-pkg for both arches, each on a runner of its
+# own arch: under QEMU the arm64 half outlasts the 6h job limit. Both images are pushed as
+# `sha-<commit>` for the release to retag.
 name: CI
 
 on:
   push:
     branches: [main, "release-*"]
-    tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
   pull_request:
-    paths-ignore: ["**.md"]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -22,14 +18,18 @@ permissions:
 
 jobs:
   pins:
-    if: github.ref_type != 'tag'
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - run: make check-pins
 
+  release-commit:
+    if: github.event_name == 'push'
+    uses: slipmesh/.github/.github/workflows/release-commit.yml@v2.1
+
   build:
-    needs: pins
+    needs: [pins, release-commit]
+    if: needs.release-commit.outputs.version != ''
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
@@ -42,8 +42,6 @@ jobs:
             runner: ubuntu-26.04
           - arch: arm64
             runner: ubuntu-26.04-arm
-    env:
-      PUBLISH: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-')) }}
     steps:
       - uses: actions/checkout@v7
 
@@ -56,18 +54,16 @@ jobs:
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
-        if: env.PUBLISH == 'true'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build the kernel and amneziawg-pkg
-        run: make kernel TARGET_ARCH=${{ matrix.arch }} TAG=sha-${{ github.sha }} PUSH=${{ env.PUBLISH }}
+        run: make kernel TARGET_ARCH=${{ matrix.arch }} TAG=sha-${{ github.sha }}
 
   manifest:
     needs: build
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-'))
     runs-on: ubuntu-26.04
     permissions:
       contents: read
@@ -87,42 +83,39 @@ jobs:
         run: make manifest TAG=sha-${{ github.sha }}
 
   tag:
-    needs: manifest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-'))
-    uses: slipmesh/.github/.github/workflows/tag-release.yml@v1.2
+    needs: [release-commit, manifest]
+    uses: slipmesh/.github/.github/workflows/tag-release.yml@v2.1
     permissions:
       contents: write
+    with:
+      version: ${{ needs.release-commit.outputs.version }}
 
-  # Runs for a release commit tagged above, or for a tag pushed by hand.
   promote-kernel:
-    needs: tag
-    if: ${{ !cancelled() && (github.ref_type == 'tag' || needs.tag.outputs.tag != '') }}
-    uses: slipmesh/.github/.github/workflows/promote.yml@v1.2
+    needs: [release-commit, tag]
+    uses: slipmesh/.github/.github/workflows/promote.yml@v2.1
     permissions:
       contents: read
       packages: write
     with:
       image: ghcr.io/slipmesh/kernel
-      tag: ${{ needs.tag.outputs.tag }}
+      tag: ${{ needs.release-commit.outputs.version }}
 
   promote-amneziawg-pkg:
-    needs: tag
-    if: ${{ !cancelled() && (github.ref_type == 'tag' || needs.tag.outputs.tag != '') }}
-    uses: slipmesh/.github/.github/workflows/promote.yml@v1.2
+    needs: [release-commit, tag]
+    uses: slipmesh/.github/.github/workflows/promote.yml@v2.1
     permissions:
       contents: read
       packages: write
     with:
       image: ghcr.io/slipmesh/amneziawg-pkg
-      tag: ${{ needs.tag.outputs.tag }}
+      tag: ${{ needs.release-commit.outputs.version }}
 
   release:
-    needs: [tag, promote-kernel, promote-amneziawg-pkg]
-    if: ${{ !cancelled() && needs.promote-kernel.result == 'success' && needs.promote-amneziawg-pkg.result == 'success' }}
-    uses: slipmesh/.github/.github/workflows/release.yml@v1.2
+    needs: [release-commit, promote-kernel, promote-amneziawg-pkg]
+    uses: slipmesh/.github/.github/workflows/release.yml@v2.1
     permissions:
       contents: write
-      packages: read
     with:
-      tag: ${{ needs.tag.outputs.tag }}
-      latest: false
+      tag: ${{ needs.release-commit.outputs.version }}
+      latest: ${{ needs.release-commit.outputs.latest == 'true' }}
+      prerelease: ${{ needs.release-commit.outputs.prerelease == 'true' }}
