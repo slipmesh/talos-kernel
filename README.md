@@ -46,7 +46,7 @@ pushing.
 
 Pull requests and pushes check the pins and build nothing. Only the push of a merged release PR
 builds both images for both arches, each on a runner of its own arch, publishes them as
-`sha-<commit>`, merges the arches, then tags the commit and retags both images as the release. See
+`sha-<commit>`, merges the arches, then retags both images as the release and tags the commit. See
 [RELEASING.md](docs/RELEASING.md).
 
 ## Pinning

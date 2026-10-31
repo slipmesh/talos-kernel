@@ -25,7 +25,7 @@ jobs:
 
   release-commit:
     if: github.event_name == 'push'
-    uses: slipmesh/.github/.github/workflows/release-commit.yml@v2.1
+    uses: slipmesh/.github/.github/workflows/release-commit.yml@v2.2
 
   build:
     needs: [pins, release-commit]
@@ -82,17 +82,9 @@ jobs:
       - name: Combine both arches
         run: make manifest TAG=sha-${{ github.sha }}
 
-  tag:
-    needs: [release-commit, manifest]
-    uses: slipmesh/.github/.github/workflows/tag-release.yml@v2.1
-    permissions:
-      contents: write
-    with:
-      version: ${{ needs.release-commit.outputs.version }}
-
   promote-kernel:
-    needs: [release-commit, tag]
-    uses: slipmesh/.github/.github/workflows/promote.yml@v2.1
+    needs: [release-commit, manifest]
+    uses: slipmesh/.github/.github/workflows/promote.yml@v2.2
     permissions:
       contents: read
       packages: write
@@ -101,8 +93,8 @@ jobs:
       tag: ${{ needs.release-commit.outputs.version }}
 
   promote-amneziawg-pkg:
-    needs: [release-commit, tag]
-    uses: slipmesh/.github/.github/workflows/promote.yml@v2.1
+    needs: [release-commit, manifest]
+    uses: slipmesh/.github/.github/workflows/promote.yml@v2.2
     permissions:
       contents: read
       packages: write
@@ -110,9 +102,17 @@ jobs:
       image: ghcr.io/slipmesh/amneziawg-pkg
       tag: ${{ needs.release-commit.outputs.version }}
 
-  release:
+  tag:
     needs: [release-commit, promote-kernel, promote-amneziawg-pkg]
-    uses: slipmesh/.github/.github/workflows/release.yml@v2.1
+    uses: slipmesh/.github/.github/workflows/tag-release.yml@v2.2
+    permissions:
+      contents: write
+    with:
+      version: ${{ needs.release-commit.outputs.version }}
+
+  release:
+    needs: [release-commit, tag]
+    uses: slipmesh/.github/.github/workflows/release.yml@v2.2
     permissions:
       contents: write
     with:
