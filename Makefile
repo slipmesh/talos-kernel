@@ -72,7 +72,8 @@ AWG_PATCHES := $(sort $(wildcard patches/pkgs/amneziawg-pkg/patches/*.patch))
 
 .PHONY: check-patches
 check-patches: | $(BUILD_DIR) ## Assert every amneziawg patch applies to AWG_REF.
-	@src=$$(mktemp -d -p $(BUILD_DIR) check-patches.XXXXXX); \
+	@src=$(BUILD_DIR)/check-patches; \
+	rm -rf "$$src" "$$src.tar.gz"; mkdir "$$src"; \
 	curl -sSL --fail "https://github.com/amnezia-vpn/amneziawg-linux-kernel-module/archive/$(AWG_REF).tar.gz" -o "$$src.tar.gz"; \
 	echo "$(AWG_SHA256)  $$src.tar.gz" | sha256sum -c --quiet; \
 	tar -xzf "$$src.tar.gz" -C "$$src" --strip-components=1; \
