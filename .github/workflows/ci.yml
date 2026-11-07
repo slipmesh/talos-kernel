@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
-      - run: make check-pins
+      - run: make check-pins check-patches
 
   release-commit:
     if: github.event_name == 'push'

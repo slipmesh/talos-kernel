@@ -39,6 +39,11 @@ steps:
     prepare:
       - |
         tar -xzf awg.tar.gz --strip-components=1
+
+        # Fixes amneziawg does not carry yet; `make check-patches` applies them the same way.
+        for patch in $(find /pkg/patches -type f -name '*.patch' | sort); do
+          patch -p1 --forward --fuzz=0 --batch < "$patch" || { echo "failed to apply $patch"; exit 1; }
+        done
     build:
       - |
         make -j $(nproc) -C /src M="$(pwd)/src" modules
