@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and follows [Semantic Versioning](https://semver.org/).
 
+## [1.15.0-alpha.2+sm.1] - 2026-11-07
+
+### Build system 🛠️
+
+- Build against Talos v1.15.0-alpha.2 (#32)
+
+### CI/CD ⚙️
+
+- Skip the build for Markdown-only changes (#20)
+- Build only the merged release PR, through the v2 shared workflows (#21)
+- Mark the newest stable release latest, through slipmesh/.github@v2.1 (#22)
+- Promote before tagging, through slipmesh/.github@v2.2 (#25)
+- Call the shared workflows at slipmesh/.github@v2.3 (#27)
+- Call the shared workflows at slipmesh/.github@v2.4 (#30)
+
+### Documentation 📚
+
+- Tag alpha.0 when branching a line, and how to withdraw a broken release (#24)
+
+## [1.15.0-alpha.0] - 2026-10-28
+
+### Added ✨
+
+- Build against Talos v1.14.5 (#18)
+
+### CI/CD ⚙️
+
+- Build every change and release through the shared flow (#17)
+
+### Documentation 📚
+
+- State the release tag rule without pointing at the retired bird repository
+- Drop the remaining comparisons with the bird repository
+- Cut the release workflow and image tag comments to their constraints
+
 ## [0.1.8+talos1.14.4] - 2026-10-16
 
 ### Added ✨
