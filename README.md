@@ -19,6 +19,9 @@ overlaid onto a pinned `siderolabs/pkgs` checkout.
 versions.env                  every pin: Talos version, pkgs commit, AWG ref, registry
 patches/pkgs/amneziawg-pkg/   overlaid onto the siderolabs/pkgs checkout; builds the module
                               against the kernel build and shares its signing key
+patches/pkgs/amneziawg-pkg/patches/
+                              fixes applied to the module source, in name order, until
+                              amneziawg carries them
 docs/kernel-signing.md        the mechanism, and why the alternatives fail
 build/                        (gitignored) the pkgs checkout
 ```
@@ -32,6 +35,7 @@ free.
 ```sh
 make print-config                  # resolved pins and image names
 make check-pins                    # PKGS is what TALOS_VERSION was built from
+make check-patches                 # every module patch applies to AWG_REF
 make preflight                     # docker, buildx, git, curl, disk space
 make kernel TARGET_ARCH=amd64      # build and push the kernel and amneziawg-pkg for this arch
 make kernel TARGET_ARCH=arm64      # the other arch, natively or under QEMU
@@ -69,8 +73,9 @@ resolved, so `checkout-pkgs` reaches for the network only when it does not resol
 
 - **Talos:** set `TALOS_VERSION` and `PKGS` to what the command under "Pinning" returns, then
   `make check-pins`.
-- **AmneziaWG:** set `AWG_REF`, run `make hashes` and paste both values back. The kernel is always
-  rebuilt with the module: there is no way to rebuild only the module and keep the signing key.
+- **AmneziaWG:** set `AWG_REF`, run `make hashes` and paste both values back, then
+  `make check-patches`: drop each patch the new ref already carries. The kernel is always rebuilt
+  with the module: there is no way to rebuild only the module and keep the signing key.
 
 Then release, and set `KERNEL_RELEASE` in talos-installer to the new tag.
 
