@@ -24,6 +24,10 @@ and follows [Semantic Versioning](https://semver.org/).
 
 - Tag alpha.0 when branching a line, and how to withdraw a broken release (#24)
 
+### Fixed 🐛
+
+- Reject a handshake response consumed after an intermediate initiation (#34)
+
 ## [1.15.0-alpha.0] - 2026-10-28
 
 ### Added ✨
