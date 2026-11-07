@@ -14,6 +14,7 @@ while upstream ships patches for it.
 
 | Talos line | branch | status |
 | --- | --- | --- |
+| 1.15 | `main` | pre-releases only |
 | 1.14 | `release-1.14` | supported |
 
 ## Cutting a release
