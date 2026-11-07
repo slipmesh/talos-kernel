@@ -16,7 +16,7 @@ SHELL := /bin/bash
 
 _GOALS := $(or $(MAKECMDGOALS),$(.DEFAULT_GOAL))
 ifeq ($(TARGET_ARCH),)
-  ifneq ($(filter-out help print-config check-pins check-version preflight checkout-pkgs manifest hashes clean distclean,$(_GOALS)),)
+  ifneq ($(filter-out help print-config check-pins check-patches check-version preflight checkout-pkgs manifest hashes clean distclean,$(_GOALS)),)
     $(error TARGET_ARCH not set - pass TARGET_ARCH=amd64 or TARGET_ARCH=arm64)
   endif
 endif
@@ -65,6 +65,23 @@ check-pins: ## Assert PKGS is the pkgs Talos $(TALOS_VERSION) was built from.
 	  echo "the module would be built for the wrong kernel and silently fail to load"; \
 	  exit 1; \
 	fi
+
+# pkg.yaml's prepare step applies them in this order and as strictly; a patch that no longer
+# applies to AWG_REF would otherwise surface only in the two-hour release build.
+AWG_PATCHES := $(sort $(wildcard patches/pkgs/amneziawg-pkg/patches/*.patch))
+
+.PHONY: check-patches
+check-patches: | $(BUILD_DIR) ## Assert every amneziawg patch applies to AWG_REF.
+	@src=$(BUILD_DIR)/check-patches; \
+	rm -rf "$$src" "$$src.tar.gz"; mkdir "$$src"; \
+	curl -sSL --fail "https://github.com/amnezia-vpn/amneziawg-linux-kernel-module/archive/$(AWG_REF).tar.gz" -o "$$src.tar.gz"; \
+	echo "$(AWG_SHA256)  $$src.tar.gz" | sha256sum -c --quiet; \
+	tar -xzf "$$src.tar.gz" -C "$$src" --strip-components=1; \
+	for patch in $(AWG_PATCHES); do \
+	  patch -d "$$src" -p1 --forward --fuzz=0 --batch --quiet < "$$patch" \
+	    || { echo "$$patch does not apply to $(AWG_REF)"; exit 1; }; \
+	  echo "applies to $(AWG_REF): $$patch"; \
+	done
 
 .PHONY: check-version
 check-version: ## Assert VERSION is a release of TALOS_VERSION, vX.Y.Z+sm.N.
