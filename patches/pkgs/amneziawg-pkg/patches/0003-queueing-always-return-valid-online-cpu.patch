@@ -1,0 +1,20 @@
+wireguard: queueing: always return valid online CPU in wg_cpumask_choose_online()
+
+Mainline commit 5bd8de20770c (Linux 6.18), applied to amneziawg's copy of queueing.h, which
+the amneziawg tree does not carry yet.
+
+A CPU going offline between num_online_cpus() and cpumask_nth() makes cpumask_nth() return
+nr_cpu_ids or more. queue_work_on() only rejects WORK_CPU_UNBOUND (NR_CPUS), so the bogus CPU
+reaches per-CPU data. Retrying until the CPU is online closes the window.
+
+--- a/src/queueing.h
++++ b/src/queueing.h
+@@ -115,7 +115,7 @@
+ {
+ 	unsigned int cpu = *stored_cpu;
+ 
+-	if (unlikely(cpu >= nr_cpu_ids || !cpu_online(cpu)))
++	while (unlikely(cpu >= nr_cpu_ids || !cpu_online(cpu)))
+ 		cpu = *stored_cpu = cpumask_nth(id % num_online_cpus(), cpu_online_mask);
+ 
+ 	return cpu;

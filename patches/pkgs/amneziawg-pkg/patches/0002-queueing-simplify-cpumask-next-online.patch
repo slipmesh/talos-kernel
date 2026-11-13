@@ -1,0 +1,31 @@
+wireguard: queueing: simplify wg_cpumask_next_online()
+
+Mainline commit 5551d2128470 (Linux 6.18), applied to amneziawg's copy of queueing.h, which
+the amneziawg tree does not carry yet.
+
+Replaces the open-coded walk with cpumask_nth(). It carries no fix of its own; the next patch
+is written against this form of the function.
+
+--- a/src/queueing.h
++++ b/src/queueing.h
+@@ -113,16 +113,11 @@
+ 
+ static inline int wg_cpumask_choose_online(int *stored_cpu, unsigned int id)
+ {
+-	unsigned int cpu = *stored_cpu, cpu_index, i;
++	unsigned int cpu = *stored_cpu;
++
++	if (unlikely(cpu >= nr_cpu_ids || !cpu_online(cpu)))
++		cpu = *stored_cpu = cpumask_nth(id % num_online_cpus(), cpu_online_mask);
+ 
+-	if (unlikely(cpu >= nr_cpu_ids ||
+-		     !cpumask_test_cpu(cpu, cpu_online_mask))) {
+-		cpu_index = id % cpumask_weight(cpu_online_mask);
+-		cpu = cpumask_first(cpu_online_mask);
+-		for (i = 0; i < cpu_index; ++i)
+-			cpu = cpumask_next(cpu, cpu_online_mask);
+-		*stored_cpu = cpu;
+-	}
+ 	return cpu;
+ }
+ 
