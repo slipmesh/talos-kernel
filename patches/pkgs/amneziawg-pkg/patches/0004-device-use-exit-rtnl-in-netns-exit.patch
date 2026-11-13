@@ -1,0 +1,39 @@
+wireguard: device: use exit_rtnl callback instead of manual rtnl_lock in pre_exit
+
+Mainline commit 60a25ef8dacb (Linux 7.1), applied to amneziawg's copy of device.c, which the
+amneziawg tree does not carry yet. The surrounding context differs from mainline, so the hunk
+is adapted rather than applied verbatim. Requires .exit_rtnl, present since Linux 6.16.
+
+wg_netns_pre_exit() took rtnl_lock itself, so namespace cleanup could hang for good while
+another thread held RTNL (syzbot). .exit_rtnl runs with RTNL already held by the framework.
+
+--- a/src/device.c
++++ b/src/device.c
+@@ -480,12 +480,11 @@
+ #endif
+ };
+ 
+-static void wg_netns_pre_exit(struct net *net)
++static void __net_exit wg_netns_exit_rtnl(struct net *net, struct list_head *dev_kill_list)
+ {
+ 	struct wg_device *wg;
+ 	struct wg_peer *peer;
+ 
+-	rtnl_lock();
+ 	list_for_each_entry(wg, &device_list, device_list) {
+ 		if (rcu_access_pointer(wg->creating_net) == net) {
+ 			pr_debug("%s: Creating namespace exiting\n", wg->dev->name);
+@@ -498,11 +497,10 @@
+ 			mutex_unlock(&wg->device_update_lock);
+ 		}
+ 	}
+-	rtnl_unlock();
+ }
+ 
+-static struct pernet_operations pernet_ops = {
+-	.pre_exit = wg_netns_pre_exit
++static struct pernet_operations pernet_ops __read_mostly = {
++	.exit_rtnl = wg_netns_exit_rtnl
+ };
+ 
+ int __init wg_device_init(void)

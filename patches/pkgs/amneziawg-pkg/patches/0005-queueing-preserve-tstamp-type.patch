@@ -1,0 +1,28 @@
+wireguard: queueing: preserve tstamp_type when encapsulating packet
+
+Mainline commit 65ab9de4bdd4 (Linux 7.3), applied to amneziawg's copy of queueing.h, which the
+amneziawg tree does not carry yet. amneziawg keeps a compat branch around the headers memset,
+so the hunk is adapted rather than applied verbatim.
+
+skb_scrub_packet() keeps a monotonic skb->tstamp, but the headers memset clears
+skb->tstamp_type, so the encapsulated packet carries a monotonic timestamp labelled realtime.
+Since Linux 7.2 sch_fq checks the label and logs "fq: likely mono tstamp" for every such packet.
+
+--- a/src/queueing.h
++++ b/src/queueing.h
+@@ -81,6 +81,7 @@
+ 	u8 l4_hash = skb->l4_hash;
+ 	u8 sw_hash = skb->sw_hash;
+ 	u32 hash = skb->hash;
++	u8 tstamp_type = skb->tstamp_type;
+ 	skb_scrub_packet(skb, true);
+ #ifdef COMPAT_SKB_HAS_SKB_START
+ 	memset(&skb->headers_start, 0,
+@@ -93,6 +94,7 @@
+ 		skb->l4_hash = l4_hash;
+ 		skb->sw_hash = sw_hash;
+ 		skb->hash = hash;
++		skb->tstamp_type = tstamp_type;
+ 	}
+ 	skb->queue_mapping = 0;
+ 	skb->nohdr = 0;
