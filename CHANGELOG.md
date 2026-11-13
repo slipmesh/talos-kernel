@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and follows [Semantic Versioning](https://semver.org/).
 
+## [1.14.6+sm.1] - 2026-11-13
+
+### Added ✨
+
+- Build against Talos v1.14.6 (#41)
+
+### CI/CD ⚙️
+
+- Release-1.14 builds only the merged release PR, through slipmesh/.github@v2.1 (#23)
+- Release-1.14 promotes before tagging, through slipmesh/.github@v2.2 (#26)
+- Release-1.14 calls the shared workflows at slipmesh/.github@v2.3 (#28)
+- Release-1.14 keeps the next line's alpha.0 out of its changelog, through slipmesh/.github@v2.4 (#31)
+
+### Fixed 🐛
+
+- Build amneziawg v3.1.20261113-02 with five mainline wireguard fixes (#40)
+
 ## [1.14.5+sm.1] - 2026-10-28
 
 ### Added ✨
