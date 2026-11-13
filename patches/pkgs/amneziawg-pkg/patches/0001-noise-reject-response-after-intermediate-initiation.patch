@@ -1,0 +1,27 @@
+wireguard: noise: reject response consumption after intermediate initiation
+
+Mainline commit d0305f8d9002 (Linux 7.3), applied to amneziawg's copy of noise.c, which the
+amneziawg tree does not carry yet.
+
+Two threads consuming the same handshake response twice could both begin a session if a new
+initiation ran between them: the state check under the write lock passes again once the
+initiation resets the state. Comparing the ephemeral private key on the stack with the
+handshake's current one rejects the stale response.
+
+--- a/src/noise.c
++++ b/src/noise.c
+@@ -796,10 +796,11 @@ wg_noise_handshake_consume_response(struct message_handshake_response *src,
+
+ 	/* Success! Copy everything to peer */
+ 	down_write(&handshake->lock);
+-	/* It's important to check that the state is still the same, while we
+-	 * have an exclusive lock.
++	/* Check that the state is the same and that this is still the
++	 * initiation we started with, while we have an exclusive lock.
+ 	 */
+-	if (handshake->state != state) {
++	if (handshake->state != state ||
++	    crypto_memneq(handshake->ephemeral_private, ephemeral_private, NOISE_PUBLIC_KEY_LEN)) {
+ 		up_write(&handshake->lock);
+ 		goto fail;
+ 	}
