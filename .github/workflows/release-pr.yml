@@ -12,12 +12,13 @@ permissions:
 
 jobs:
   release-pr:
-    uses: slipmesh/.github/.github/workflows/release-pr.yml@v2.4
+    uses: slipmesh/.github/.github/workflows/release-pr.yml@v4.0.0
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
     with:
       version: ${{ inputs.version }}
       # The version lives in the tag and CHANGELOG.md only; this refuses one that names another
       # Talos release.
       bump: make check-version VERSION="$VERSION"
+    secrets:
+      CI_APP_PRIVATE_KEY: ${{ secrets.CI_APP_PRIVATE_KEY }}
